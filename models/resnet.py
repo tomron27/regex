@@ -2,7 +2,7 @@ import torch
 from torch import Tensor
 import torch.nn as nn
 from typing import Type, Any, Callable, Union, List, Optional
-from attention import SelfAttn
+from models.attention import SelfAttn
 
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
@@ -136,7 +136,8 @@ class ResNet(nn.Module):
         width_per_group: int = 64,
         replace_stride_with_dilation: Optional[List[bool]] = None,
         norm_layer: Optional[Callable[..., nn.Module]] = None,
-        learnable_attn: bool = True
+        learnable_attn: bool = True,
+        **kwargs
     ) -> None:
         super(ResNet, self).__init__()
         if norm_layer is None:
@@ -170,7 +171,7 @@ class ResNet(nn.Module):
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.dense = nn.Linear(512 * block.expansion, 1000)
-        self.final = nn.Linear(512 * block.expansion, 1)
+        self.final = nn.Linear(1000, 1)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -248,5 +249,28 @@ class ResNet(nn.Module):
             return x, (None, None)
 
 
-def resnet50_attn_regressor(**kwargs: Any) -> ResNet:
-    return ResNet(Bottleneck, layers=[3, 4, 6, 3], **kwargs)
+def get_resnet50_attn_regressor(**kwargs) -> ResNet:
+    model = ResNet(Bottleneck, layers=[3, 4, 6, 3], **kwargs)
+    if kwargs["weights"] is not None:
+        print("Loading pretrained model from: '{}'".format(kwargs["weights"]))
+        weights = torch.load(kwargs["weights"])
+        # Remove ImageNet specific weights
+        if "imagenet" in kwargs["weights"]:
+            weights.pop('conv1.weight')
+            weights.pop('fc.weight')
+            weights.pop('fc.bias')
+        model.load_state_dict(weights, strict=False)
+    if kwargs["freeze_backbone"]:
+        # Enable training only on the self attention / final layers
+        for layer in model.modules():
+            for p in layer.parameters():
+                p.requires_grad = False
+        for layer in model.modules():
+            if hasattr(layer, "name") or any([s in layer._get_name() for s in ["Linear"]]):
+                for p in layer.parameters():
+                    p.requires_grad = True
+    # Parameters
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print("Total parameters: {}\nTotal trainable parameters: {}".format(total_params, trainable_params))
+    return model

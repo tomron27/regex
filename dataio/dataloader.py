@@ -43,8 +43,8 @@ class BraTS18(Dataset):
     def __len__(self):
         return len(self.data_list)
 
-if __name__ == "__main__":
-    folder = "/data/home/tomron27/datasets/BraTS18/train_proc/"
-    train_metadata, test_metadata = probe_data_folder(folder)
-    train_data = BraTS18(folder, train_metadata)
-    image, mask = train_data.__getitem__(0)
+# if __name__ == "__main__":
+#     folder = "/data/home/tomron27/datasets/BraTS18/train_proc/"
+#     train_metadata, test_metadata = probe_data_folder(folder)
+#     train_data = BraTS18(folder, train_metadata)
+#     image, mask = train_data.__getitem__(0)
