@@ -1,6 +1,7 @@
 import os
+import torch
 from torchvision.transforms import Compose
-from kornia.augmentation import RandomAffine
+from kornia.augmentation import RandomAffine, Normalize
 from dataio.augmentations import CustomBrightness, CustomContrast
 
 BASE_DIR = "/mnt/ml-srv1/home/tomron27/"
@@ -15,9 +16,9 @@ class TrainConfig():
             "weights": None,
             "freeze_backbone": False,
             "prefetch_data": False,
-            "subsample_frac": 0.25,
+            "subsample_frac": 1.0,
             "seed": 42,
-            "num_epochs": 100,
+            "num_epochs": 500,
             "chekpoint_save_interval": 100,
             "min_epoch_save": 1,
             "batch_size": 64,
@@ -43,15 +44,21 @@ class TrainConfig():
             "save_metric": "rmse",
             # l2x params
             "tau": 0.5,
-            "k": 256,
-            "spatial_dim": 512,
+            "k": 64,
+            "spatial_dim": 240,
             "factor": 16,
             # Augmentations
-            "transforms": Compose([
+            "train_transforms": Compose([
+                Normalize(mean=torch.tensor([149.56119, 165.83559, 166.13501, 112.61901]),
+                          std=torch.tensor([636.8766, 653.8386, 759.8256, 718.83594])),
                 RandomAffine(p=1.0, degrees=(-180, 180),
                              translate=(0.1, 0.1),
                              scale=(0.7, 1.3),
                              shear=(0.9, 1.1)),
+            ]),
+            "test_transforms": Compose([
+                Normalize(mean=torch.tensor([149.56119, 165.83559, 166.13501, 112.61901]),
+                          std=torch.tensor([636.8766, 653.8386, 759.8256, 718.83594])),
             ]),
             "bad_files": [
                             "Brats18_CBICA_AWH_1_slice=69_y=2501.npz",

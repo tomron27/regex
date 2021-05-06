@@ -94,22 +94,29 @@ class BraTS18(Dataset):
     def __len__(self):
         return len(self.data_list)
 
-# if __name__ == "__main__":
-#     folder = os.path.join(BASE_DIR, "datasets/BraTS18/train_proc_new/")
-#     train_metadata, test_metadata = probe_data_folder(folder)
-#     # Transforms
-#     transforms = Compose([
-#         RandomAffine(p=1.0, degrees=(-180, 180),
-#                      translate=(0.1, 0.1),
-#                      scale=(0.7, 1.3),
-#                      shear=(0.9, 1.1)),
-#         # CustomContrast(p=1.0, contrast=(0.7, 1.3)),
-#         # CustomBrightness(p=1.0, brightness=(0.3, 1.1)),
-#     ])
-#     train_data = BraTS18(folder, train_metadata, transforms=transforms, shuffle=True)
-#     import matplotlib.pyplot as plt
-#     for i in range(10):
-#         image, mask = train_data.__getitem__(i)
-#         plt.imshow(image[0][0])
-#         plt.show()
-#     pass
+if __name__ == "__main__":
+    folder = os.path.join(BASE_DIR, "datasets/BraTS18/train_proc_new/")
+    train_metadata, test_metadata = probe_data_folder(folder)
+    # Transforms
+    transforms = Compose([
+        RandomAffine(p=1.0, degrees=(-180, 180),
+                     translate=(0.1, 0.1),
+                     scale=(0.7, 1.3),
+                     shear=(0.9, 1.1)),
+        # CustomContrast(p=1.0, contrast=(0.7, 1.3)),
+        # CustomBrightness(p=1.0, brightness=(0.3, 1.1)),
+    ])
+    # sub_data = train_metadata[:10]
+    all_data = BraTS18(folder, train_metadata + test_metadata, transforms=transforms, shuffle=True)
+    # all_data = BraTS18(folder, sub_data, transforms=transforms, shuffle=True)
+    import matplotlib.pyplot as plt
+    arr = []
+    for i in tqdm(range(len(all_data)), total=len(all_data)):
+        image, mask = all_data.__getitem__(i)
+        arr.append(image.numpy())
+    arr = np.array(arr)
+    print("Mean:")
+    print(arr.mean(axis=(0, 2, 3)))
+    print("Std:")
+    print(arr.std(axis=(0, 2, 3)))
+    pass
