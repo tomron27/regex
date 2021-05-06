@@ -1,23 +1,24 @@
+import os
 import json
 from torchvision.transforms import Compose
 # from kornia.geometry import Resize
 # from kornia.augmentation import RandomResizedCrop, RandomHorizontalFlip, RandomVerticalFlip, RandomAffine, RandomErasing, RandomPerspective
 # from src.dataio.transforms import Normalize, CustomBrightness, CustomContrast, RandomContrast
-
+BASE_DIR = "/mnt/ml-srv1/home/tomron27/"
 
 class TrainConfig():
     def __init__(self):
         self.config = {
-            "data_path": "/data/home/tomron27/datasets/BraTS18/train_proc/",
-            "log_path": "/data/home/tomron27/projects/regex/logs/",
-            "gpu_id": 1,
+            "data_path": os.path.join(BASE_DIR, "datasets/BraTS18/train_proc/"),
+            "log_path": os.path.join(BASE_DIR, "projects/regex/logs/"),
+            "gpu_id": 3,
             "weights": None,
             "freeze_backbone": True,
             "seed": 42,
             "num_epochs": 100,
             "chekpoint_save_interval": 100,
-            "min_epoch_save": 10,
-            "batch_size": 32,
+            "min_epoch_save": 1,
+            "batch_size": 64,
             "num_workers": 4,
             "lr": 1e-3,
             "optim_step": 100,
@@ -51,4 +52,12 @@ class TrainConfig():
             #     CustomContrast(p=1.0, contrast=(1.0, 1.1)),
             #     CustomBrightness(p=1.0, brightness=(0.3, 1.1)),
             # ]),
+            "bad_files": [
+                            "Brats18_CBICA_AWH_1_slice=69_y=2501.npz",
+                            "Brats18_CBICA_AWH_1_slice=69_mask.npz",
+                            "Brats18_CBICA_AWH_1_slice=73_y=1726.npz",
+                            "Brats18_CBICA_AWH_1_slice=73_mask.npz",
+                            "Brats18_CBICA_ATV_1_slice=72_y=1093.npz",
+                            "Brats18_CBICA_ATV_1_slice=72_mask.npz"
+                            ]
         }

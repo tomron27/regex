@@ -3,13 +3,14 @@ import nibabel as nib
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from config import BASE_DIR
 
 train_root = [
-    #"/data/home/tomron27/datasets/BraTS18/train/LGG/",
-    "/data/home/tomron27/datasets/BraTS18/train/HGG/",
+    os.path.join(BASE_DIR, "datasets/BraTS18/train/LGG/"),
+    os.path.join(BASE_DIR, "datasets/BraTS18/train/HGG/"),
 ]
 
-dest_train = "/data/home/tomron27/datasets/BraTS18/train_proc/"
+dest_train = os.path.join(BASE_DIR, "datasets/BraTS18/train_proc_npy/")
 
 
 def dilute_and_save_image_and_mask(x, mask, dest, folder):
@@ -35,9 +36,13 @@ def dilute_and_save_image_and_mask(x, mask, dest, folder):
         area = mask_filtered[i].sum()
         img_fname = os.path.join(dest, folder + f"_slice={str(start_idx + i)}_y={area}.npz")
         mask_fname = os.path.join(dest, folder + f"_slice={str(start_idx + i)}_mask.npz")
+        # img_fname = os.path.join(dest, folder + f"_slice={str(start_idx + i)}_y={area}.npy")
+        # mask_fname = os.path.join(dest, folder + f"_slice={str(start_idx + i)}_mask.npy")
         try:
             np.savez_compressed(img_fname, data=x_filtered[:, i])
             np.savez_compressed(mask_fname, data=mask_filtered[i])
+            # np.save(img_fname, x_filtered[:, i])
+            # np.save(mask_fname, mask_filtered[i])
         except:
             print(f"Error occurred on {img_fname}, continuing")
 
@@ -46,6 +51,7 @@ if __name__ == "__main__":
     for train_folder in train_root:
         print(f"Probing folder '{train_folder}'")
         folders = os.listdir(train_folder)
+        os.makedirs(dest_train, exist_ok=True)
         for i, folder in tqdm(enumerate(folders), total=len(folders)):
             if "HGG" in train_folder and i in (50, 131):
                 continue    # EOF bugs

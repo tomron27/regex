@@ -241,7 +241,7 @@ class ResNet(nn.Module):
         x = torch.flatten(x, 1)
 
         x = self.dense(x)
-        x = self.final(x)
+        x = self.final(x).squeeze()
 
         if self.learnable_attn:
             return x, (p3, p4)
