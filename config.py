@@ -19,7 +19,7 @@ class TrainConfig():
             "chekpoint_save_interval": 100,
             "min_epoch_save": 1,
             "batch_size": 64,
-            "num_workers": 4,
+            "num_workers": 8,
             "lr": 1e-3,
             "optim_step": 100,
             "optim_factor": 0.5,

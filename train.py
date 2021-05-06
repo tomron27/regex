@@ -47,7 +47,7 @@ def train(seed=None):
                                                      bad_files=params["bad_files"])
 
     # Datasets
-    train_dataset = BraTS18(params["data_path"], train_metadata) # TODO - transforms
+    train_dataset = BraTS18(params["data_path"], train_metadata)  # TODO - transforms
     val_dataset = BraTS18(params["data_path"], val_metadata)
 
     # Dataloaders
@@ -93,7 +93,7 @@ def train(seed=None):
     for epoch in range(params["num_epochs"]):
         train_stats, val_stats = {}, {}
         for fold in ['train', 'val']:
-            print("*** Epoch {:04d} {} fold***".format(epoch + 1, fold))
+            print(f"*** Epoch {epoch + 1} {fold} fold ***")
             if fold == "train":
                 model.train()
                 for i, sample in tqdm(enumerate(train_loader), total=len(train_loader)):
@@ -107,7 +107,7 @@ def train(seed=None):
                     loss.backward()
                     optimizer.step()
                     current_lr = optimizer.param_groups[0]['lr'] if scheduler is not None else params["lr"]
-                    log_stats_regression(val_stats, outputs, targets, loss, batch_size=params["batch_size"],
+                    log_stats_regression(train_stats, outputs, targets, loss, batch_size=params["batch_size"],
                                          lr=current_lr)
 
             else:
@@ -132,9 +132,9 @@ def train(seed=None):
 
         # Save parameters
         if val_score < best_val_score and epoch >= params["min_epoch_save"]:
-            model_file = os.path.join(log_dir,params["name"] + '__best__epoch={:03d}_score={:.4f}.pt'.format(epoch + 1, val_score))
-            print("Model improved '{}' from {:.4f} to {:.4f}".format(params["save_metric"], best_val_score, val_score))
-            print("Saving model at '{}' ...".format(model_file))
+            model_file = os.path.join(log_dir,params["name"] + f'__best__epoch={epoch + 1:03d}_score={val_score:.4f}.pt')
+            print(f'Model improved {params["save_metric"]} from {best_val_score:.4f} to {val_score:.4f}')
+            print(f'Saving model at \'{model_file}\' ...')
             torch.save(model.state_dict(), model_file)
             best_val_score = val_score
             wandb.run.summary["best_val_score"] = best_val_score
@@ -142,8 +142,8 @@ def train(seed=None):
         if params["chekpoint_save_interval"] > 0:
             if epoch % params["chekpoint_save_interval"] == 0 and epoch >= params["min_epoch_save"]:
                 model_file = os.path.join(log_dir,
-                                          params["name"] + '__ckpt__epoch={:03d}_score={:.4f}.pt'.format(epoch + 1, val_score))
-                print("Saving model at '{}' ...".format(model_file))
+                                          params["name"] + f'__ckpt__epoch={epoch + 1:03d}_score={val_score:.4f}.pt')
+                print(f"Saving model at '{model_file}' ...")
                 torch.save(model.state_dict(), model_file)
 
 

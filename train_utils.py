@@ -21,11 +21,6 @@ def log_stats_regression(stats, outputs, targets, loss, batch_size=1, lr=None):
         stats['lr'] = lr
 
 
-def compute_y(stats):
-    y_true, y_hat = zip(*stats['pred'])
-    return y_true.numpy(), y_hat.numpy()
-
-
 def write_stats_regression(train_stats, val_stats, epoch, ret_metric="rmse"):
     epoch = epoch + 1
     avg_train_loss = sum(train_stats['loss']) / len(train_stats['loss'])
@@ -34,12 +29,12 @@ def write_stats_regression(train_stats, val_stats, epoch, ret_metric="rmse"):
     if 'lr' in train_stats:
         wandb.log({"learning_rate": train_stats['lr'], "epoch": epoch})
 
-    train_y_true, train_y_hat = compute_y(train_stats)
-    val_y_true, val_y_hat = compute_y(val_stats)
+    train_y_true, train_y_hat = zip(*train_stats['pred'])
+    val_y_true, val_y_hat = zip(*val_stats['pred'])
 
     # RMSE
-    wandb.log({"train_precision": mean_squared_error(train_y_true, train_y_hat, squared=False),
-               "val_precision": mean_squared_error(val_y_true, val_y_hat, squared=False),
+    wandb.log({"train_rmse": mean_squared_error(train_y_true, train_y_hat, squared=False),
+               "val_rmse": mean_squared_error(val_y_true, val_y_hat, squared=False),
                "epoch": epoch})
 
     output = [avg_val_loss]
