@@ -14,6 +14,7 @@ class TrainConfig():
             "gpu_id": 3,
             "weights": None,
             "freeze_backbone": False,
+            "prefetch_data": True,
             "seed": 42,
             "num_epochs": 100,
             "chekpoint_save_interval": 100,

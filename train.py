@@ -47,8 +47,8 @@ def train(seed=None):
                                                      bad_files=params["bad_files"])
 
     # Datasets
-    train_dataset = BraTS18(params["data_path"], train_metadata)  # TODO - transforms
-    val_dataset = BraTS18(params["data_path"], val_metadata)
+    train_dataset = BraTS18(params["data_path"], train_metadata, prefetch_data=params["prefetch_data"])  # TODO - transforms
+    val_dataset = BraTS18(params["data_path"], val_metadata, prefetch_data=params["prefetch_data"])
 
     # Dataloaders
     train_loader = DataLoader(dataset=train_dataset,
