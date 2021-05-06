@@ -22,8 +22,8 @@ from models.resnet import get_resnet50_attn_regressor
 def train(seed=None):
     raw_params = TrainConfig()
     # Serialize transforms
-    # transforms = raw_params.config.pop("transforms")
-    # raw_params.config["transforms"] = {"transforms": transforms.__str__()}
+    transforms = raw_params.config.pop("transforms")
+    raw_params.config["transforms"] = {"transforms": transforms.__str__()}
 
     params = raw_params.config
 
@@ -44,11 +44,20 @@ def train(seed=None):
 
     train_metadata, val_metadata = probe_data_folder(params["data_path"],
                                                      train_frac=params["train_frac"],
-                                                     bad_files=params["bad_files"])
+                                                     bad_files=params["bad_files"],
+                                                     subsample_frac=params["subsample_frac"])
 
     # Datasets
-    train_dataset = BraTS18(params["data_path"], train_metadata, prefetch_data=params["prefetch_data"])  # TODO - transforms
-    val_dataset = BraTS18(params["data_path"], val_metadata, prefetch_data=params["prefetch_data"])
+    train_dataset = BraTS18(params["data_path"],
+                            train_metadata,
+                            transforms=transforms,
+                            shuffle=True,
+                            random_state=params["seed"],
+                            prefetch_data=params["prefetch_data"])
+    val_dataset = BraTS18(params["data_path"],
+                          val_metadata,
+                          prefetch_data=params["prefetch_data"],
+                          shuffle=False)
 
     # Dataloaders
     train_loader = DataLoader(dataset=train_dataset,

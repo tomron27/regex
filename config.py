@@ -1,20 +1,21 @@
 import os
-import json
 from torchvision.transforms import Compose
-# from kornia.geometry import Resize
-# from kornia.augmentation import RandomResizedCrop, RandomHorizontalFlip, RandomVerticalFlip, RandomAffine, RandomErasing, RandomPerspective
-# from src.dataio.transforms import Normalize, CustomBrightness, CustomContrast, RandomContrast
+from kornia.augmentation import RandomAffine
+from dataio.augmentations import CustomBrightness, CustomContrast
+
 BASE_DIR = "/mnt/ml-srv1/home/tomron27/"
+
 
 class TrainConfig():
     def __init__(self):
         self.config = {
-            "data_path": os.path.join(BASE_DIR, "datasets/BraTS18/train_proc/"),
-            "log_path": os.path.join(BASE_DIR, "projects/regex/logs/"),
+            "data_path": os.path.join(BASE_DIR, "datasets/BraTS18/train_proc_new"),
+            "log_path": os.path.join(BASE_DIR, "projects/regex/logs"),
             "gpu_id": 3,
             "weights": None,
             "freeze_backbone": False,
-            "prefetch_data": True,
+            "prefetch_data": False,
+            "subsample_frac": 0.25,
             "seed": 42,
             "num_epochs": 100,
             "chekpoint_save_interval": 100,
@@ -46,13 +47,12 @@ class TrainConfig():
             "spatial_dim": 512,
             "factor": 16,
             # Augmentations
-            # "transforms": Compose([
-            #     RandomResizedCrop(p=1.0, size=(512, 512), scale=(0.8, 3.3)),
-            #     RandomHorizontalFlip(p=0.5),
-            #     RandomVerticalFlip(p=0.5),
-            #     CustomContrast(p=1.0, contrast=(1.0, 1.1)),
-            #     CustomBrightness(p=1.0, brightness=(0.3, 1.1)),
-            # ]),
+            "transforms": Compose([
+                RandomAffine(p=1.0, degrees=(-180, 180),
+                             translate=(0.1, 0.1),
+                             scale=(0.7, 1.3),
+                             shear=(0.9, 1.1)),
+            ]),
             "bad_files": [
                             "Brats18_CBICA_AWH_1_slice=69_y=2501.npz",
                             "Brats18_CBICA_AWH_1_slice=69_mask.npz",

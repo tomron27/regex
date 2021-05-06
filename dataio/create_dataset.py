@@ -10,7 +10,7 @@ train_root = [
     os.path.join(BASE_DIR, "datasets/BraTS18/train/HGG/"),
 ]
 
-dest_train = os.path.join(BASE_DIR, "datasets/BraTS18/train_proc_npy/")
+dest_train = os.path.join(BASE_DIR, "datasets/BraTS18/train_proc_new/")
 
 
 def dilute_and_save_image_and_mask(x, mask, dest, folder):
@@ -32,10 +32,11 @@ def dilute_and_save_image_and_mask(x, mask, dest, folder):
     mask_filtered = np.array(mask_filtered, dtype=np.uint8)
 
     # Save slices as npy 2d arrays
+    os.makedirs(os.path.join(dest, folder), exist_ok=True)
     for i in range(x_filtered.shape[1]):
         area = mask_filtered[i].sum()
-        img_fname = os.path.join(dest, folder + f"_slice={str(start_idx + i)}_y={area}.npz")
-        mask_fname = os.path.join(dest, folder + f"_slice={str(start_idx + i)}_mask.npz")
+        img_fname = os.path.join(dest, folder, folder + f"_slice={str(start_idx + i)}_y={area}.npz")
+        mask_fname = os.path.join(dest, folder, folder + f"_slice={str(start_idx + i)}_mask.npz")
         # img_fname = os.path.join(dest, folder + f"_slice={str(start_idx + i)}_y={area}.npy")
         # mask_fname = os.path.join(dest, folder + f"_slice={str(start_idx + i)}_mask.npy")
         try:
