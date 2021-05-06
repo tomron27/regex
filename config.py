@@ -13,7 +13,7 @@ class TrainConfig():
             "log_path": os.path.join(BASE_DIR, "projects/regex/logs/"),
             "gpu_id": 3,
             "weights": None,
-            "freeze_backbone": True,
+            "freeze_backbone": False,
             "seed": 42,
             "num_epochs": 100,
             "chekpoint_save_interval": 100,
