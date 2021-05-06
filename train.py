@@ -86,7 +86,6 @@ def train(seed=None):
                                   min_lr=1e-6,
                                   verbose=True)
 
-    # TODO - logging
     # Training
     best_val_score = 1e6
     save_dir = os.path.join(params["log_path"], "val_results")
