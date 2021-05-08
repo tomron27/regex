@@ -9,7 +9,7 @@ from torch.utils.data import Dataset
 from config import BASE_DIR
 
 from torchvision.transforms import Compose
-from kornia.augmentation import RandomAffine, RandomVerticalFlip
+from kornia.augmentation import RandomAffine, RandomVerticalFlip, RandomHorizontalFlip
 from dataio.augmentations import CustomBrightness, CustomContrast
 
 
@@ -154,6 +154,7 @@ if __name__ == "__main__":
     # Transforms
     transforms = Compose([
         RandomVerticalFlip(p=0.5),
+        RandomHorizontalFlip(p=0.5),
         # RandomAffine(p=1.0, degrees=(-180, 180),
         #              translate=(0.1, 0.1),
         #              scale=(0.7, 1.3),
@@ -162,9 +163,10 @@ if __name__ == "__main__":
         # CustomBrightness(p=1.0, brightness=(0.3, 1.1)),
     ])
     # sub_data = train_metadata[:10]
-    train_data = BraTS18Binary(folder, train_metadata, transforms=None, shuffle=True)
+    train_data = BraTS18Binary(folder, train_metadata, transforms=transforms, shuffle=True)
     # all_data = BraTS18(folder, sub_data, transforms=transforms, shuffle=True)
     import matplotlib.pyplot as plt
     for i in range(10):
-        image, mask = train_data.__getitem__(0)
+        image, mask = train_data.__getitem__(i)
+        plt.imshow(image[2], cmap="gray"); plt.title(mask.item()), plt.show()
     pass

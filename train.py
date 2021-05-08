@@ -14,10 +14,10 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, MultiStepLR
 from torch.utils.data import DataLoader
 
 from config import TrainConfig
-from dataio.dataloader import probe_data_folder, BraTS18
-from train_utils import log_stats_regression, write_stats_regression
-from models.resnet import get_resnet50_attn_regressor
-from models.unet import get_unet_regressor
+from dataio.dataloader import probe_data_folder, BraTS18Binary
+from train_utils import log_stats_classification, write_stats_classification
+from models.resnet import get_resnet50_attn_classifier
+# from models.unet import get_unet_regressor
 
 
 def train(seed=None):
@@ -51,13 +51,13 @@ def train(seed=None):
                                                      subsample_frac=params["subsample_frac"])
 
     # Datasets
-    train_dataset = BraTS18(params["data_path"],
+    train_dataset = BraTS18Binary(params["data_path"],
                             train_metadata,
                             transforms=train_transforms,
                             shuffle=True,
                             random_state=params["seed"],
                             prefetch_data=params["prefetch_data"])
-    val_dataset = BraTS18(params["data_path"],
+    val_dataset = BraTS18Binary(params["data_path"],
                           val_metadata,
                           transforms=test_transforms,
                           prefetch_data=params["prefetch_data"],
@@ -76,7 +76,8 @@ def train(seed=None):
 
     # Model
     # model = get_resnet50_attn_regressor(**params)
-    model = get_unet_regressor(**params)
+    # model = get_unet_regressor(**params)
+    model = get_resnet50_attn_classifier(**params)
 
     # Create log dir
     log_dir = os.path.join(params["log_path"], params["name"], datetime.now().strftime("%Y%m%d_%H:%M:%S"))
@@ -90,7 +91,8 @@ def train(seed=None):
     model = model.to(device)
 
     # Loss
-    criterion = torch.nn.MSELoss()
+    # criterion = torch.nn.MSELoss()
+    criterion = torch.nn.CrossEntropyLoss()
 
     # Optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=params["lr"])
@@ -101,7 +103,7 @@ def train(seed=None):
                                   verbose=True)
 
     # Training
-    best_val_score = 1e6
+    best_val_score = 0.0
     save_dir = os.path.join(params["log_path"], "val_results")
     os.makedirs(save_dir, exist_ok=True)
     for epoch in range(params["num_epochs"]):
@@ -121,7 +123,7 @@ def train(seed=None):
                     loss.backward()
                     optimizer.step()
                     current_lr = optimizer.param_groups[0]['lr'] if scheduler is not None else params["lr"]
-                    log_stats_regression(train_stats, outputs, targets, loss, batch_size=params["batch_size"],
+                    log_stats_classification(train_stats, outputs, targets, loss, batch_size=params["batch_size"],
                                          lr=current_lr)
 
             else:
@@ -135,9 +137,9 @@ def train(seed=None):
                             print("Oops")
                         loss = criterion(outputs, targets)
                         current_lr = optimizer.param_groups[0]['lr'] if scheduler is not None else params["lr"]
-                        log_stats_regression(val_stats, outputs, targets, loss, batch_size=params["batch_size"],
+                        log_stats_classification(val_stats, outputs, targets, loss, batch_size=params["batch_size"],
                                              lr=current_lr)
-                val_loss, val_score = write_stats_regression(train_stats, val_stats, epoch,
+                val_loss, val_score = write_stats_classification(train_stats, val_stats, epoch,
                                                                  ret_metric=params["save_metric"])
 
         # progress LR scheduler
@@ -145,7 +147,7 @@ def train(seed=None):
             scheduler.step(val_loss)
 
         # Save parameters
-        if val_score < best_val_score and epoch >= params["min_epoch_save"]:
+        if val_score > best_val_score and epoch >= params["min_epoch_save"]:
             model_file = os.path.join(log_dir,params["name"] + f'__best__epoch={epoch + 1:03d}_score={val_score:.4f}.pt')
             print(f'Model improved {params["save_metric"]} from {best_val_score:.4f} to {val_score:.4f}')
             print(f'Saving model at \'{model_file}\' ...')
