@@ -10,7 +10,7 @@ train_root = [
     os.path.join(BASE_DIR, "datasets/BraTS18/train/HGG/"),
 ]
 
-dest_train = os.path.join(BASE_DIR, "datasets/BraTS18/train_proc_new/")
+dest_train = os.path.join(BASE_DIR, "datasets/BraTS18/train_split_proc/")
 
 
 def dilute_and_save_image_and_mask(x, mask, dest, folder):
@@ -20,7 +20,7 @@ def dilute_and_save_image_and_mask(x, mask, dest, folder):
     mask_filtered = []
     x_filtered = []
     start_idx = None
-    for i in range(t1_img.shape[0]):
+    for i in range(x.shape[0]):
         area = mask[i].sum()
         if area > 0:
             if start_idx is None:
@@ -46,6 +46,67 @@ def dilute_and_save_image_and_mask(x, mask, dest, folder):
             # np.save(mask_fname, mask_filtered[i])
         except:
             print(f"Error occurred on {img_fname}, continuing")
+
+
+def dilute_split_and_save_image_and_mask(x, mask, dest, folder):
+    """
+    Skips slices without tumor and saves to .npz file
+    """
+    try:
+        mask_filtered = []
+        x_filtered = []
+        start_idx = None
+        for i in range(x.shape[0]):
+            area = mask[i].sum()
+            if area > 1000:
+                if start_idx is None:
+                    start_idx = i
+                mask_filtered.append(mask[i])
+                x_filtered.append(x[:, i])
+        x_filtered = np.array(x_filtered, dtype=np.float64)
+        x = np.transpose(x_filtered, (1, 0, 2, 3))
+        mask = np.array(mask_filtered, dtype=np.uint8)
+
+        # Save slices as npy 2d arrays
+        os.makedirs(os.path.join(dest, folder), exist_ok=True)
+        for i in range(x.shape[1]):
+
+            x_min, x_max = np.where(mask[i].sum(axis=0))[0].min(), np.where(mask[i].sum(axis=0))[0].max()
+            # y_min, y_max = np.where(mask[i].sum(axis=1))[0].min(), np.where(mask[i].sum(axis=1))[0].max()
+
+            # plt.imshow(x[2][i], cmap="gray")
+            # plt.imshow(mask[i], cmap="jet", alpha=0.4)
+            #
+            # plt.axhline(y=y_min, color='r', linestyle='-')
+            # plt.axhline(y=y_max, color='r', linestyle='-')
+            # plt.axvline(x=x_min, color='b', linestyle='-')
+            # plt.axvline(x=x_max, color='b', linestyle='-')
+            # plt.show()
+
+            x_right, x_left = np.zeros(shape=(x.shape[0], *x.shape[2:]), dtype=x.dtype), np.zeros(shape=(x.shape[0], *x.shape[2:]), dtype=x.dtype)
+            mask_right, mask_left = np.zeros(shape=mask.shape[1:], dtype=mask.dtype), np.zeros(shape=mask.shape[1:], dtype=mask.dtype)
+
+            left = 1
+            if (x_min + x_max) / 2 < 120:   # Tumor is on the left side
+                x_left[:, :, 0:x_max], x_right[:, :, x_max:240] = x[:, i, :, 0:x_max], x[:, i, :, x_max:240]
+                mask_left[:, 0:x_max], mask_right[:, x_max:240] = mask[i, :, 0:x_max], mask[i, :, x_max:240]
+            else:
+                left = 0
+                x_left[:, :, 0:x_min], x_right[:, :, x_min:240] = x[:, i, :, 0:x_min], x[:, i, :, x_min:240]
+                mask_left[:, 0:x_min], mask_right[:, x_min:240] = mask[i, :, 0:x_min], mask[i, :, x_min:240]
+
+            # area = mask[i].sum()
+            left_img_fname = os.path.join(dest, folder, folder + f"_slice={str(start_idx + i)}_side=left_y={str(left)}.npz")
+            right_img_fname = os.path.join(dest, folder, folder + f"_slice={str(start_idx + i)}_side=right_y={str(1-left)}.npz")
+            left_mask_fname = os.path.join(dest, folder, folder + f"_slice={str(start_idx + i)}_side=left_y={str(left)}_mask.npz")
+            right_mask_fname = os.path.join(dest, folder, folder + f"_slice={str(start_idx + i)}_side=right_y={str(1-left)}_mask.npz")
+
+            np.savez_compressed(left_img_fname, data=x_left)
+            np.savez_compressed(right_img_fname, data=x_right)
+            np.savez_compressed(left_mask_fname, data=mask_left)
+            np.savez_compressed(right_mask_fname, data=mask_right)
+    except Exception as e:
+        print(f"Error occurred on {folder}:", str(e))
 
 
 if __name__ == "__main__":
@@ -75,7 +136,7 @@ if __name__ == "__main__":
             x[2] = t2_img
             x[3] = flair_img
 
-            dilute_and_save_image_and_mask(x, mask, dest_train, folder)
+            dilute_split_and_save_image_and_mask(x, mask, dest_train, folder)
 
 
     # t2_img = nib.load(os.path.join(sample_dir, "Brats18_TCIA08_469_1_t2.nii.gz")).get_fdata()

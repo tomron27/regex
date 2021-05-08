@@ -9,7 +9,7 @@ from torch.utils.data import Dataset
 from config import BASE_DIR
 
 from torchvision.transforms import Compose
-from kornia.augmentation import RandomAffine
+from kornia.augmentation import RandomAffine, RandomVerticalFlip
 from dataio.augmentations import CustomBrightness, CustomContrast
 
 
@@ -94,29 +94,77 @@ class BraTS18(Dataset):
     def __len__(self):
         return len(self.data_list)
 
+
+class BraTS18Binary(Dataset):
+    def __init__(self, base_folder, data_list, transforms=None, shuffle=True, random_state=42, get_mask=False, prefetch_data=False):
+        super(BraTS18Binary, self).__init__()
+        self.base_folder = base_folder
+        self.transforms = transforms
+        self.get_mask = get_mask
+        self.prefetch_data = prefetch_data
+        self.shuffle = shuffle
+        self.random_state = random_state
+        self.data_list = data_list
+        if self.shuffle:
+            random.Random(self.random_state).shuffle(self.data_list)
+        if self.prefetch_data:
+            print("Prefetching dataset")
+            self.data = []
+            for i, (image_fname, mask_fname) in tqdm(enumerate(self.data_list), total=len(self.data_list)):
+                image, label = self.get_image_and_mask(image_fname)
+                self.data.append((image, label))
+
+    def get_image_and_mask(self, image_fname, mask_fname=None):
+        try:
+            image = np.load(os.path.join(self.base_folder, image_fname))['data']
+            image = torch.tensor(image, dtype=torch.float32)
+        except:
+            print(f"Error encountered on '{image_fname}'; '{mask_fname}'")
+            raise ValueError
+        label = int(re.search(r"y=([0-9]+)", image_fname).groups(1)[0])
+        label = torch.tensor(label, dtype=torch.long)
+
+        if self.get_mask:
+            mask = np.load(os.path.join(self.base_folder, mask_fname))['data']
+            mask = torch.tensor(mask, dtype=torch.float32)
+            return image, (label, mask)
+
+        return image, label
+
+    def __getitem__(self, index):
+        if self.prefetch_data:
+            image, label = self.data[index]
+        else:
+            image_fname, mask_fname = self.data_list[index]
+            mask_fname = mask_fname if self.get_mask else None
+            image, label = self.get_image_and_mask(image_fname, mask_fname=mask_fname)
+
+        if self.transforms is not None:
+            image = self.transforms(image).squeeze()
+
+        return image, label
+
+    def __len__(self):
+        return len(self.data_list)
+
+
 if __name__ == "__main__":
-    folder = os.path.join(BASE_DIR, "datasets/BraTS18/train_proc_new/")
+    folder = os.path.join(BASE_DIR, "datasets/BraTS18/train_split_proc/")
     train_metadata, test_metadata = probe_data_folder(folder)
     # Transforms
     transforms = Compose([
-        RandomAffine(p=1.0, degrees=(-180, 180),
-                     translate=(0.1, 0.1),
-                     scale=(0.7, 1.3),
-                     shear=(0.9, 1.1)),
+        RandomVerticalFlip(p=0.5),
+        # RandomAffine(p=1.0, degrees=(-180, 180),
+        #              translate=(0.1, 0.1),
+        #              scale=(0.7, 1.3),
+        #              shear=(0.9, 1.1)),
         # CustomContrast(p=1.0, contrast=(0.7, 1.3)),
         # CustomBrightness(p=1.0, brightness=(0.3, 1.1)),
     ])
     # sub_data = train_metadata[:10]
-    all_data = BraTS18(folder, train_metadata + test_metadata, transforms=transforms, shuffle=True)
+    train_data = BraTS18Binary(folder, train_metadata, transforms=None, shuffle=True)
     # all_data = BraTS18(folder, sub_data, transforms=transforms, shuffle=True)
     import matplotlib.pyplot as plt
-    arr = []
-    for i in tqdm(range(len(all_data)), total=len(all_data)):
-        image, mask = all_data.__getitem__(i)
-        arr.append(image.numpy())
-    arr = np.array(arr)
-    print("Mean:")
-    print(arr.mean(axis=(0, 2, 3)))
-    print("Std:")
-    print(arr.std(axis=(0, 2, 3)))
+    for i in range(10):
+        image, mask = train_data.__getitem__(0)
     pass

@@ -17,6 +17,7 @@ from config import TrainConfig
 from dataio.dataloader import probe_data_folder, BraTS18
 from train_utils import log_stats_regression, write_stats_regression
 from models.resnet import get_resnet50_attn_regressor
+from models.unet import get_unet_regressor
 
 
 def train(seed=None):
@@ -74,7 +75,8 @@ def train(seed=None):
                             shuffle=False)
 
     # Model
-    model = get_resnet50_attn_regressor(**params)
+    # model = get_resnet50_attn_regressor(**params)
+    model = get_unet_regressor(**params)
 
     # Create log dir
     log_dir = os.path.join(params["log_path"], params["name"], datetime.now().strftime("%Y%m%d_%H:%M:%S"))
