@@ -147,6 +147,10 @@ class BraTS18Binary(Dataset):
     def __len__(self):
         return len(self.data_list)
 
+    def _get_metadata(self, index):
+        image_fname, mask_fname = self.data_list[index]
+        return image_fname
+
 
 if __name__ == "__main__":
     folder = os.path.join(BASE_DIR, "datasets/BraTS18/train_split_proc/")
@@ -163,10 +167,13 @@ if __name__ == "__main__":
         # CustomBrightness(p=1.0, brightness=(0.3, 1.1)),
     ])
     # sub_data = train_metadata[:10]
-    train_data = BraTS18Binary(folder, train_metadata, transforms=transforms, shuffle=True)
+    train_data = BraTS18Binary(folder, train_metadata, transforms=transforms, shuffle=True, random_state=1)
     # all_data = BraTS18(folder, sub_data, transforms=transforms, shuffle=True)
     import matplotlib.pyplot as plt
-    for i in range(10):
+    for i in range(len(train_data)):
         image, mask = train_data.__getitem__(i)
-        plt.imshow(image[2], cmap="gray"); plt.title(mask.item()), plt.show()
+        metadata = train_data._get_metadata(i)
+        plt.imshow(image[2], cmap="gray")
+        plt.title(f"label = {mask.item()}\n{metadata}")
+        plt.show()
     pass
