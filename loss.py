@@ -15,17 +15,20 @@ def attn_kl_div(input, target, detach_target=False):
 
 
 class MarginalPenaltyLoss(torch.nn.Module):
-    def __init__(self, attn_kl=True, kl_weight=1e-4):
+    def __init__(self, attn_kl=True, kl_weight=1e-4, detach_targets=False):
         super(MarginalPenaltyLoss, self).__init__()
-        self.cross_entropy = torch.nn.CrossEntropyLoss(weight=self.loss_weights)
+        self.cross_entropy = torch.nn.CrossEntropyLoss()
         self.attn_kl = attn_kl
         self.kl_weight = kl_weight
+        self.detach_targets = detach_targets
 
     def forward(self, output, targets, attn):
         cross_entropy_loss = self.cross_entropy(output, targets)
         if self.attn_kl and attn is not None:
             if len(attn) == 4:
                 tau3_lamb, tau4_lamb, tau3, tau4 = attn
+                if self.detach_targets:
+                    tau4_lamb = tau4_lamb.detach()
                 kl_loss = F.kl_div(tau3_lamb.log(), tau4_lamb, reduction='batchmean')
                 total_loss = cross_entropy_loss + self.kl_weight * kl_loss
                 return (cross_entropy_loss, kl_loss, total_loss)

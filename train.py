@@ -17,7 +17,7 @@ import config
 from config import TrainConfig, BASE_DIR, GPU_ID
 from dataio.dataloader import probe_data_folder, BraTS18Binary
 from train_utils import log_stats_classification, write_stats_classification
-from loss import TauKLDivLoss
+from loss import TauKLDivLoss, MarginalPenaltyLoss
 from models.resnet import get_resnet50_attn_classifier
 # from models.unet import get_unet_regressor
 
@@ -100,9 +100,10 @@ def train(seed=None):
     # Loss
     # criterion = torch.nn.MSELoss()
     # criterion = torch.nn.CrossEntropyLoss()
-    criterion = TauKLDivLoss(attn_kl=params["attn_kl"],
-                             kl_weight=params["kl_weight"],
-                             detach_targets=params["detach_targets"])
+    # criterion = TauKLDivLoss(attn_kl=params["attn_kl"],
+    #                          kl_weight=params["kl_weight"],
+    #                          detach_targets=params["detach_targets"])
+    criterion = MarginalPenaltyLoss(attn_kl=params["attn_kl"], kl_weight=params["kl_weight"])
 
     # Optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=params["lr"])
