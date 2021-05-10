@@ -13,11 +13,19 @@ import pickle
 from torch.optim.lr_scheduler import ReduceLROnPlateau, MultiStepLR
 from torch.utils.data import DataLoader
 
-from config import TrainConfig
+import config
+from config import TrainConfig, BASE_DIR, GPU_ID
 from dataio.dataloader import probe_data_folder, BraTS18Binary
 from train_utils import log_stats_classification, write_stats_classification
+from loss import TauKLDivLoss
 from models.resnet import get_resnet50_attn_classifier
 # from models.unet import get_unet_regressor
+
+# Ignore pytorch warnings
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+
+os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID
 
 
 def train(seed=None):
@@ -86,13 +94,15 @@ def train(seed=None):
     pickle.dump(params, open(os.path.join(log_dir, "params.p"), "wb"))
 
     # CUDA
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(params["gpu_id"])
     device = torch.device("cuda" if torch.cuda.is_available() and params["use_gpu"] else "cpu")
     model = model.to(device)
 
     # Loss
     # criterion = torch.nn.MSELoss()
-    criterion = torch.nn.CrossEntropyLoss()
+    # criterion = torch.nn.CrossEntropyLoss()
+    criterion = TauKLDivLoss(attn_kl=params["attn_kl"],
+                             kl_weight=params["kl_weight"],
+                             detach_targets=params["detach_targets"])
 
     # Optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=params["lr"])
@@ -115,15 +125,16 @@ def train(seed=None):
                 for i, sample in tqdm(enumerate(train_loader), total=len(train_loader)):
                     images, targets = sample
                     images, targets = images.to(device, non_blocking=True), targets.to(device, non_blocking=True)
-                    outputs, _ = model(images)
+                    outputs, attn = model(images)
                     if torch.isnan(outputs).any():
                         print("Oops")
-                    loss = criterion(outputs, targets)
+                    losses = criterion(outputs, targets, attn)
+                    loss = losses[-1]
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
                     current_lr = optimizer.param_groups[0]['lr'] if scheduler is not None else params["lr"]
-                    log_stats_classification(train_stats, outputs, targets, loss, batch_size=params["batch_size"],
+                    log_stats_classification(train_stats, outputs, targets, losses, batch_size=params["batch_size"],
                                          lr=current_lr)
 
             else:
@@ -132,12 +143,12 @@ def train(seed=None):
                     for i, sample in tqdm(enumerate(val_loader), total=len(val_loader)):
                         images, targets = sample
                         images, targets = images.to(device, non_blocking=True), targets.to(device, non_blocking=True)
-                        outputs, _ = model(images)
+                        outputs, attn = model(images)
                         if torch.isnan(outputs).any():
                             print("Oops")
-                        loss = criterion(outputs, targets)
+                        losses = criterion(outputs, targets, attn)
                         current_lr = optimizer.param_groups[0]['lr'] if scheduler is not None else params["lr"]
-                        log_stats_classification(val_stats, outputs, targets, loss, batch_size=params["batch_size"],
+                        log_stats_classification(val_stats, outputs, targets, losses, batch_size=params["batch_size"],
                                              lr=current_lr)
                 val_loss, val_score = write_stats_classification(train_stats, val_stats, epoch,
                                                                  ret_metric=params["save_metric"])

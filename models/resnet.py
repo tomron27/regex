@@ -2,7 +2,7 @@ import torch
 from torch import Tensor
 import torch.nn as nn
 from typing import Type, Any, Callable, Union, List, Optional
-from models.attention import SelfAttn
+from models.attention import SelfAttn, Marginals
 
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
@@ -264,6 +264,7 @@ class ResNetClassifier(nn.Module):
         norm_layer: Optional[Callable[..., nn.Module]] = None,
         num_classes: int = 2,
         learnable_attn: bool = True,
+        learnable_marginals: bool = True,
         **kwargs
     ) -> None:
         super(ResNetClassifier, self).__init__()
@@ -291,6 +292,9 @@ class ResNetClassifier(nn.Module):
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2, dilate=replace_stride_with_dilation[0])
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1])
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2, dilate=replace_stride_with_dilation[2])
+        self.learnable_marginals = learnable_marginals
+        if self.learnable_marginals:
+            self.marginals = Marginals(spatial_dim=8)
         if self.learnable_attn:
             # self.self_attn1 = SelfAttn(input_embed_channels=256, output_embed_channels=2048)
             # self.self_attn2 = SelfAttn(input_embed_channels=512, output_embed_channels=2048)
@@ -364,15 +368,20 @@ class ResNetClassifier(nn.Module):
         if self.learnable_attn:
             x, p4 = self.self_attn4(x)
 
+        if self.learnable_attn and self.learnable_marginals:
+            p3_lamb, p4_lamb, p3, p4 = self.marginals(p3, p4)
+
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
 
         x = self.fc(x)
 
         if self.learnable_attn:
+            if self.learnable_attn:
+                return x, (p3_lamb, p4_lamb, p3, p4)
             return x, (p3, p4)
         else:
-            return x, (None, None)
+            return x
 
 
 def get_resnet50_attn_regressor(**kwargs):

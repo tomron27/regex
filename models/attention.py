@@ -60,3 +60,24 @@ class SelfAttn(nn.Module):
         tau = torch.softmax(tau.view(tau.shape[0], -1), dim=1).reshape(tau.shape)
         attended_x = torch.einsum('bcxy,bxy->bcxy', x, tau)
         return attended_x, tau
+
+
+class Marginals(nn.Module):
+    def __init__(self, spatial_dim=16):
+        super(Marginals, self).__init__()
+        self.spatial_dim = spatial_dim
+        self.factor = 2
+        self.tau_pool = torch.nn.AvgPool2d(kernel_size=(self.factor, self.factor),
+                                           stride=(self.factor, self.factor),
+                                           padding=(0, 0))
+        self.lamb = nn.Parameter(torch.ones(1, 1, self.spatial_dim, self.spatial_dim) / (self.spatial_dim * self.spatial_dim))
+
+    def forward(self, tau3, tau4):
+        tau3_marginal = self.tau_pool(tau3) * self.factor**2
+        tau3_lamb = tau3_marginal * torch.exp(-self.lamb)
+        tau3_lamb_sum = tau3_lamb.view(tau3_lamb.shape[0], -1).sum(dim=1)
+        tau3_lamb = tau3_lamb / tau3_lamb_sum
+        tau4_lamb = tau4 * torch.exp(self.lamb)
+        tau4_lamb_sum = tau4_lamb.view(tau4_lamb.shape[0], -1).sum(dim=1)
+        tau4_lamb = tau4_lamb / tau4_lamb_sum
+        return tau3_lamb, tau4_lamb, tau3, tau4
