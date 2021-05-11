@@ -17,7 +17,7 @@ import config
 from config import TrainConfig, BASE_DIR, GPU_ID
 from dataio.dataloader import probe_data_folder, BraTS18Binary
 from train_utils import log_stats_classification, write_stats_classification
-from loss import TauKLDivLoss, MarginalPenaltyLoss, MarginalsPenaltyLossExtended
+from loss import TauKLDivLoss, MarginalPenaltyLoss, MarginalsExtendedLoss
 from models.resnet import get_resnet50_attn_classifier
 from models.unet import get_unet_regressor, get_unet_encoder_classifier
 
@@ -53,10 +53,13 @@ def train(seed=None):
                notes=params["name"],
                group=params["group"])
 
-    train_metadata, val_metadata = probe_data_folder(params["data_path"],
-                                                     train_frac=params["train_frac"],
-                                                     bad_files=params["bad_files"],
-                                                     subsample_frac=params["subsample_frac"])
+    train_metadata, val_metadata, class_counts = probe_data_folder(params["data_path"],
+                                                                   train_frac=params["train_frac"],
+                                                                   bad_files=params["bad_files"],
+                                                                   subsample_frac=params["subsample_frac"],
+                                                                   count_classes=True)
+    ### DEBUG
+    # train_metadata, val_metadata = train_metadata[:128], val_metadata[:128]
 
     # Datasets
     train_dataset = BraTS18Binary(params["data_path"],
@@ -105,11 +108,7 @@ def train(seed=None):
     #                          kl_weight=params["kl_weight"],
     #                          detach_targets=params["detach_targets"])
     # criterion = MarginalPenaltyLoss(attn_kl=params["attn_kl"], kl_weight=params["kl_weight"])
-    criterion = MarginalsPenaltyLossExtended(init_dim=params["spatial_dim"],
-                                             attn_kl=params["attn_kl"],
-                                             num_tau=4,  # TODO - config this
-                                             kl_weight=params["kl_weight"],
-                                             detach_targets=params["detach_targets"])
+    criterion = MarginalsExtendedLoss(attn_kl=params["attn_kl"], kl_weight=params["kl_weight"], detach_targets=params["detach_targets"],)
 
     # Optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=params["lr"])
@@ -132,10 +131,10 @@ def train(seed=None):
                 for i, sample in tqdm(enumerate(train_loader), total=len(train_loader)):
                     images, targets = sample
                     images, targets = images.to(device, non_blocking=True), targets.to(device, non_blocking=True)
-                    outputs, attn = model(images)
+                    outputs, attn, marginals = model(images)
                     if torch.isnan(outputs).any():
                         print("Oops")
-                    losses = criterion(outputs, targets, attn)
+                    losses = criterion(outputs, targets, marginals)
                     loss = losses[-1]
                     optimizer.zero_grad()
                     loss.backward()
@@ -150,10 +149,10 @@ def train(seed=None):
                     for i, sample in tqdm(enumerate(val_loader), total=len(val_loader)):
                         images, targets = sample
                         images, targets = images.to(device, non_blocking=True), targets.to(device, non_blocking=True)
-                        outputs, attn = model(images)
+                        outputs, attn, marginals = model(images)
                         if torch.isnan(outputs).any():
                             print("Oops")
-                        losses = criterion(outputs, targets, attn)
+                        losses = criterion(outputs, targets, marginals)
                         current_lr = optimizer.param_groups[0]['lr'] if scheduler is not None else params["lr"]
                         log_stats_classification(val_stats, outputs, targets, losses, batch_size=params["batch_size"],
                                              lr=current_lr)

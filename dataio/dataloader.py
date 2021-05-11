@@ -22,7 +22,7 @@ def get_patient_files(base_dir, patient, bad_files=None):
     return list(zip(images_fnames, masks_fnames))
 
 
-def probe_data_folder(folder, train_frac=0.8, random_state=42, bad_files=None, subsample_frac=1.0):
+def probe_data_folder(folder, train_frac=0.8, random_state=42, bad_files=None, subsample_frac=1.0, count_classes=True):
     patient_folders = os.listdir(folder)
     random.Random(random_state).shuffle(patient_folders)
     if subsample_frac < 1.0:
@@ -39,7 +39,17 @@ def probe_data_folder(folder, train_frac=0.8, random_state=42, bad_files=None, s
         test += get_patient_files(folder, patient, bad_files=bad_files)
     print(f"  Total of {len(train_patients)} train patients, {len(test_patients)} test patients")
     print(f"  Total of {len(train)} train slices, {len(test)} test slices")
-    return train, test
+    class_counts = None
+    if count_classes:
+        class_counts = {}
+        for row in train + test:
+            label = re.search(r"y=([0-9]+)", row[0]).groups(1)[0]
+            if label not in class_counts:
+                class_counts[label] = 1
+            else:
+                class_counts[label] += 1
+        class_counts = {k: class_counts[k] for k in sorted(class_counts)}
+    return train, test, class_counts
 
 
 class BraTS18(Dataset):
@@ -153,7 +163,7 @@ class BraTS18Binary(Dataset):
 
 
 if __name__ == "__main__":
-    folder = os.path.join(BASE_DIR, "datasets/BraTS18/train_split_proc/")
+    folder = os.path.join(BASE_DIR, "datasets/BraTS18/train_split_proc_3way/")
     train_metadata, test_metadata = probe_data_folder(folder)
     # Transforms
     transforms = Compose([

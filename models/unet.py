@@ -1,7 +1,8 @@
 from collections import OrderedDict
 import torch
 import torch.nn as nn
-from  attention import SimpleSelfAttention
+from models.attention import SimpleSelfAttention, Marginals, MarginalsExtended
+
 
 def unet_block(in_channels, features, name):
     return nn.Sequential(
@@ -38,7 +39,7 @@ def unet_block(in_channels, features, name):
 
 class UNetEncoder(nn.Module):
     def __init__(self, channels=1, num_classes=1, init_features=32, spatial_dim=240,
-                 learnable_attn=False, attn_embed_factor=8, **kwargs):
+                 learnable_attn=False, learnable_marginals=False, attn_embed_factor=8, **kwargs):
         super(UNetEncoder, self).__init__()
 
         self.features = init_features
@@ -46,6 +47,7 @@ class UNetEncoder(nn.Module):
         self.in_channels = channels
         self.num_classes = num_classes
         self.learnable_attn = learnable_attn
+        self.learnable_marginals = learnable_marginals
         self.embed_channels = attn_embed_factor * init_features
 
         self.encoder1 = unet_block(self.in_channels, self.features, name="enc1")
@@ -67,6 +69,8 @@ class UNetEncoder(nn.Module):
             self.attn2 = SimpleSelfAttention(input_channels=self.features * 2, embed_channels=self.embed_channels)
             self.attn3 = SimpleSelfAttention(input_channels=self.features * 4, embed_channels=self.embed_channels)
             self.attn4 = SimpleSelfAttention(input_channels=self.features * 8, embed_channels=self.embed_channels)
+            if self.learnable_marginals:
+                self.marginals = MarginalsExtended(margin_dim=256)
 
     def forward(self, x):
         x = self.encoder1(x)
@@ -92,8 +96,10 @@ class UNetEncoder(nn.Module):
         x = self.fc(x.flatten(1))
 
         if self.learnable_attn:
+            if self.learnable_marginals:
+                marginal_pairs = self.marginals(tau1, tau2, tau3, tau4)
+                return x, (tau1, tau2, tau3, tau4), marginal_pairs
             return x, (tau1, tau2, tau3, tau4)
-
         return x, None
 
 
@@ -199,15 +205,15 @@ def get_unet_encoder_classifier(**kwargs):
         print("Loading pretrained model from: '{}'".format(kwargs["weights"]))
         weights = torch.load(kwargs["weights"])
         model.load_state_dict(weights, strict=False)
-    # if kwargs["freeze_backbone"]: # TODO
-    #     # Enable training only on the self attention / final layers
-    #     for layer in model.modules():
-    #         for p in layer.parameters():
-    #             p.requires_grad = False
-    #     for layer in model.modules():
-    #         if hasattr(layer, "name") or any([s in layer._get_name() for s in ["Linear"]]):
-    #             for p in layer.parameters():
-    #                 p.requires_grad = True
+    if kwargs["freeze_backbone"]: # TODO
+        # Enable training only on the self attention / final layers
+        for layer in model.modules():
+            for p in layer.parameters():
+                p.requires_grad = False
+        for layer in model.modules():
+            if hasattr(layer, "name") or any([s in layer._get_name() for s in ["Linear"]]):
+                for p in layer.parameters():
+                    p.requires_grad = True
     # Parameters
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)

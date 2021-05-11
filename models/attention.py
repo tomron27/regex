@@ -3,6 +3,16 @@ import torch.nn.functional as F
 from torch import nn
 
 
+class SumPool(nn.Module):
+    def __init__(self, factor=2):
+        super(SumPool, self).__init__()
+        self.factor = factor
+        self.avgpool = nn.AvgPool2d(kernel_size=(factor, factor), stride=(factor, factor), padding=(0, 0))
+
+    def forward(self, x):
+        return self.avgpool(x) * (self.factor ** 2)
+
+
 class SimpleSelfAttention(nn.Module):
     def __init__(self, input_channels, embed_channels, kernel_size=(1, 1), stride=(1, 1),
                  padding=(0, 0), name='simple_self_attn'):
@@ -118,27 +128,63 @@ class SelfAttn(nn.Module):
 
 
 class Marginals(nn.Module):
-    def __init__(self, spatial_dim=16):
+    def __init__(self, margin_dim=256, factor=2):
         super(Marginals, self).__init__()
-        self.spatial_dim = spatial_dim
-        self.factor = 2
-        self.tau_pool = torch.nn.AvgPool2d(kernel_size=(self.factor, self.factor),
-                                           stride=(self.factor, self.factor),
-                                           padding=(0, 0))
-        self.lamb = nn.Parameter(torch.ones(1, 1, self.spatial_dim, self.spatial_dim) / (self.spatial_dim * self.spatial_dim))
+        self.factor = factor
+        self.margin_dim = margin_dim
+        self.tau_pool = SumPool(factor=factor)
+        self.lamb = nn.Parameter(torch.ones(1, 1, margin_dim, margin_dim))
+        self.name = "marginals"
 
-    def forward(self, tau3, tau4):
-        tau3_marginal = self.tau_pool(tau3) * self.factor**2
-        tau3_lamb = tau3_marginal * torch.exp(-self.lamb)
-        tau3_lamb_sum = tau3_lamb.view(tau3_lamb.shape[0], -1).sum(dim=1)
-        tau3_lamb = tau3_lamb / tau3_lamb_sum
-        tau4_lamb = tau4 * torch.exp(self.lamb)
-        tau4_lamb_sum = tau4_lamb.view(tau4_lamb.shape[0], -1).sum(dim=1)
-        tau4_lamb = tau4_lamb / tau4_lamb_sum
-        return tau3_lamb, tau4_lamb, tau3, tau4
+    def forward(self, tau1, tau2):
+        tau1_marginal = self.tau_pool(tau1)
+        tau1_lamb = tau1_marginal * torch.exp(-self.lamb)
+        tau1_lamb_sum = tau1_lamb.view(tau1_lamb.shape[0], -1).sum(dim=1)
+        tau1_lamb = tau1_lamb / tau1_lamb_sum
+        tau2_lamb = tau2 * torch.exp(self.lamb)
+        tau2_lamb_sum = tau2_lamb.view(tau2_lamb.shape[0], -1).sum(dim=1)
+        tau2_lamb = tau2_lamb / tau2_lamb_sum
+        return (tau1, tau2), (tau1_lamb, tau2_lamb)
+
+
+class MarginalsExtended(nn.Module):
+    def __init__(self, margin_dim=256, factor=2):
+        super(MarginalsExtended, self).__init__()
+        self.factor = factor
+        self.margin_dim = margin_dim
+        self.tau_pool = SumPool(factor=factor)
+        self.lamb = nn.Parameter(torch.ones(1, 1, margin_dim, margin_dim))
+        self.name = "marginals_extended"
+
+    def forward(self, tau1, tau2, tau3, tau4):
+
+        lamb2 = SumPool(2)(self.lamb)
+        lamb3 = SumPool(4)(self.lamb)
+        lamb4 = SumPool(8)(self.lamb)
+
+        tau1_lamb_neg = SumPool(2)(tau1) * torch.exp(-lamb2)
+        tau1_lamb_neg = tau1_lamb_neg / tau1_lamb_neg.view(tau1_lamb_neg.shape[0], -1).sum(dim=1)
+
+        tau2_lamb = tau2 * torch.exp(lamb2)
+        tau2_lamb = tau2_lamb / tau2_lamb.view(tau2_lamb.shape[0], -1).sum(dim=1)
+        tau2_lamb_neg = SumPool(2)(tau2) * torch.exp(-lamb3)
+        tau2_lamb_neg = tau2_lamb_neg / tau2_lamb_neg.view(tau2_lamb_neg.shape[0], -1).sum(dim=1)
+        
+        tau3_lamb = tau3 * torch.exp(lamb3)
+        tau3_lamb = tau3_lamb / tau3_lamb.view(tau3_lamb.shape[0], -1).sum(dim=1)
+        tau3_lamb_neg = SumPool(2)(tau3) * torch.exp(-lamb4)
+        tau3_lamb_neg = tau3_lamb_neg / tau3_lamb_neg.view(tau3_lamb_neg.shape[0], -1).sum(dim=1)
+
+        tau4_lamb = tau4 * torch.exp(lamb4)
+        tau4_lamb = tau4_lamb / tau4_lamb.view(tau4_lamb.shape[0], -1).sum(dim=1)
+        # source, target
+        return (tau1_lamb_neg, tau2_lamb), (tau2_lamb_neg, tau3_lamb), (tau3_lamb_neg, tau4_lamb)
 
 
 if __name__ == "__main__":
-    inputs = torch.randn(64, 1, 256, 256)
-    model = SimpleSelfAttention(input_channels=1, embed_channels=256)
-    model(inputs)
+
+    layer = MarginalsExtended(margin_dim=256)
+    init_size = 256
+    taus = [torch.randn(1, 1, 256 // (2**i), 256 // (2**i)) for i in range(4)]
+    res = layer(*taus)
+    pass
