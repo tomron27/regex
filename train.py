@@ -17,9 +17,9 @@ import config
 from config import TrainConfig, BASE_DIR, GPU_ID
 from dataio.dataloader import probe_data_folder, BraTS18Binary
 from train_utils import log_stats_classification, write_stats_classification
-from loss import TauKLDivLoss, MarginalPenaltyLoss
+from loss import TauKLDivLoss, MarginalPenaltyLoss, MarginalsPenaltyLossExtended
 from models.resnet import get_resnet50_attn_classifier
-# from models.unet import get_unet_regressor
+from models.unet import get_unet_regressor, get_unet_encoder_classifier
 
 # Ignore pytorch warnings
 import warnings
@@ -85,7 +85,8 @@ def train(seed=None):
     # Model
     # model = get_resnet50_attn_regressor(**params)
     # model = get_unet_regressor(**params)
-    model = get_resnet50_attn_classifier(**params)
+    # model = get_resnet50_attn_classifier(**params)
+    model = get_unet_encoder_classifier(**params)
 
     # Create log dir
     log_dir = os.path.join(params["log_path"], params["name"], datetime.now().strftime("%Y%m%d_%H:%M:%S"))
@@ -103,7 +104,12 @@ def train(seed=None):
     # criterion = TauKLDivLoss(attn_kl=params["attn_kl"],
     #                          kl_weight=params["kl_weight"],
     #                          detach_targets=params["detach_targets"])
-    criterion = MarginalPenaltyLoss(attn_kl=params["attn_kl"], kl_weight=params["kl_weight"])
+    # criterion = MarginalPenaltyLoss(attn_kl=params["attn_kl"], kl_weight=params["kl_weight"])
+    criterion = MarginalsPenaltyLossExtended(init_dim=params["spatial_dim"],
+                                             attn_kl=params["attn_kl"],
+                                             num_tau=4,  # TODO - config this
+                                             kl_weight=params["kl_weight"],
+                                             detach_targets=params["detach_targets"])
 
     # Optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=params["lr"])

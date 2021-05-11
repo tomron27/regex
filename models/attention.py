@@ -3,6 +3,61 @@ import torch.nn.functional as F
 from torch import nn
 
 
+class SimpleSelfAttention(nn.Module):
+    def __init__(self, input_channels, embed_channels, kernel_size=(1, 1), stride=(1, 1),
+                 padding=(0, 0), name='simple_self_attn'):
+        super(SimpleSelfAttention, self).__init__()
+        self.w1 = nn.Conv2d(in_channels=input_channels,
+                            out_channels=embed_channels,
+                            kernel_size=kernel_size,
+                            stride=stride,
+                            padding=padding,)
+        self.w2 = nn.Conv2d(in_channels=embed_channels,
+                            out_channels=1,
+                            kernel_size=kernel_size,
+                            stride=stride,
+                            padding=padding)
+        self.relu = nn.ReLU(inplace=True)
+        self.name = name
+
+    def forward(self, x):
+        tau = self.w1(x)
+        tau = F.normalize(tau)
+        tau = self.relu(tau)
+        tau = self.w2(tau).squeeze(1)
+        tau = torch.softmax(tau.flatten(1), dim=1).reshape(tau.shape)
+        attended_x = torch.einsum('bcxy,bxy->bcxy', x, tau)
+        return attended_x, tau
+
+
+class SimpleUnary(nn.Module):
+    def __init__(self, input_embed_channels, output_embed_channels, kernel_size=(1, 1), stride=(1, 1),
+                 padding=(0, 0), name='unary_att'):
+        super(SimpleUnary, self).__init__()
+        self.w1 = nn.Conv2d(in_channels=input_embed_channels,
+                            out_channels=output_embed_channels,
+                            kernel_size=kernel_size,
+                            stride=stride,
+                            padding=padding,)
+        self.w2 = nn.Conv2d(in_channels=output_embed_channels,
+                            out_channels=1,
+                            kernel_size=kernel_size,
+                            stride=stride,
+                            padding=padding)
+        # self.dropout = nn.Dropout2d(dropout_prob)
+        self.name = name
+
+    def forward(self, x):
+        x = self.w1(x)
+        x = F.normalize(x)
+        x = torch.relu(x)
+        x = self.w3(x)
+        # x = F.normalize(x)
+        # 1 X 16 X 16
+
+        return x.squeeze(1)
+
+
 class Unary(nn.Module):
     def __init__(self, input_embed_channels, output_embed_channels, kernel_size=(1, 1), stride=(1, 1),
                  padding=(0, 0), name='unary_att'):
@@ -81,3 +136,9 @@ class Marginals(nn.Module):
         tau4_lamb_sum = tau4_lamb.view(tau4_lamb.shape[0], -1).sum(dim=1)
         tau4_lamb = tau4_lamb / tau4_lamb_sum
         return tau3_lamb, tau4_lamb, tau3, tau4
+
+
+if __name__ == "__main__":
+    inputs = torch.randn(64, 1, 256, 256)
+    model = SimpleSelfAttention(input_channels=1, embed_channels=256)
+    model(inputs)

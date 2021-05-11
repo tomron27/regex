@@ -381,7 +381,7 @@ class ResNetClassifier(nn.Module):
                 return x, (p3_lamb, p4_lamb, p3, p4)
             return x, (p3, p4)
         else:
-            return x
+            return x, None
 
 
 def get_resnet50_attn_regressor(**kwargs):
