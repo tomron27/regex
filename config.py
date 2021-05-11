@@ -22,7 +22,7 @@ class TrainConfig():
             "subsample_frac": 1.0,
             "seed": 42,
             "num_epochs": 200,
-            "chekpoint_save_interval": 100,
+            "chekpoint_save_interval": 10,
             "min_epoch_save": 1,
             "batch_size": 16,
             "num_workers": 8,
