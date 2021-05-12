@@ -65,7 +65,7 @@ class UNetEncoder(nn.Module):
         self.fc = nn.Linear(self.features * 16, self.num_classes)
 
         if self.learnable_attn:
-            self.attn1 = SimpleSelfAttention(input_channels=self.features, embed_channels=256)
+            self.attn1 = SimpleSelfAttention(input_channels=self.features, embed_channels=self.embed_channels)
             self.attn2 = SimpleSelfAttention(input_channels=self.features * 2, embed_channels=self.embed_channels)
             self.attn3 = SimpleSelfAttention(input_channels=self.features * 4, embed_channels=self.embed_channels)
             self.attn4 = SimpleSelfAttention(input_channels=self.features * 8, embed_channels=self.embed_channels)
@@ -93,7 +93,7 @@ class UNetEncoder(nn.Module):
         x = self.bottleneck(x)
         x = self.avg_pool(x)
         x = x.flatten(1)
-        x = self.fc(x.flatten(1))
+        x = self.fc(x)
 
         if self.learnable_attn:
             if self.learnable_marginals:

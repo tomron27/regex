@@ -1,5 +1,6 @@
 import sys
 import os
+sys.path.append(os.path.dirname(os.getcwd()))
 import random
 import numpy as np
 import matplotlib.pyplot as plt
@@ -164,7 +165,7 @@ def train(seed=None):
             scheduler.step(val_loss)
 
         # Save parameters
-        if val_score > best_val_score and epoch >= params["min_epoch_save"]:
+        if val_score >= best_val_score and epoch >= params["min_epoch_save"]:
             model_file = os.path.join(log_dir,params["name"] + f'__best__epoch={epoch + 1:03d}_score={val_score:.4f}.pt')
             print(f'Model improved {params["save_metric"]} from {best_val_score:.4f} to {val_score:.4f}')
             print(f'Saving model at \'{model_file}\' ...')

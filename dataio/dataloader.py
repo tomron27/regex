@@ -115,6 +115,7 @@ class BraTS18Binary(Dataset):
         self.shuffle = shuffle
         self.random_state = random_state
         self.data_list = data_list
+        self.d_type = "npy" if "npy" in data_list[0][0] else "npz"
         if self.shuffle:
             random.Random(self.random_state).shuffle(self.data_list)
         if self.prefetch_data:
@@ -126,7 +127,9 @@ class BraTS18Binary(Dataset):
 
     def get_image_and_mask(self, image_fname, mask_fname=None):
         try:
-            image = np.load(os.path.join(self.base_folder, image_fname))['data']
+            image = np.load(os.path.join(self.base_folder, image_fname))
+            if self.d_type == "npz":
+                image = image["data"]
             image = torch.tensor(image, dtype=torch.float32)
         except:
             print(f"Error encountered on '{image_fname}'; '{mask_fname}'")
@@ -135,7 +138,9 @@ class BraTS18Binary(Dataset):
         label = torch.tensor(label, dtype=torch.long)
 
         if self.get_mask:
-            mask = np.load(os.path.join(self.base_folder, mask_fname))['data']
+            mask = np.load(os.path.join(self.base_folder, mask_fname))
+            if self.d_type == "npz":
+                mask = mask["data"]
             mask = torch.tensor(mask, dtype=torch.float32)
             return image, (label, mask)
 
@@ -163,8 +168,8 @@ class BraTS18Binary(Dataset):
 
 
 if __name__ == "__main__":
-    folder = os.path.join(BASE_DIR, "datasets/BraTS18/train_split_proc_3way/")
-    train_metadata, test_metadata = probe_data_folder(folder)
+    folder = os.path.join(BASE_DIR, "datasets/BraTS18/train_split_proc_new/")
+    train_metadata, test_metadata, _ = probe_data_folder(folder)
     # Transforms
     transforms = Compose([
         RandomVerticalFlip(p=0.5),

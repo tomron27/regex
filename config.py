@@ -5,43 +5,43 @@ from kornia.augmentation import RandomAffine, Normalize, RandomVerticalFlip, Ran
 from kornia.geometry.transform import Resize
 from dataio.augmentations import CustomBrightness, CustomContrast
 
-BASE_DIR = "/mnt/ml-srv1/home/tomron27/"
-GPU_ID = "3"
+BASE_DIR = "/hdd0"
+GPU_ID = "0"
 
 class TrainConfig():
     def __init__(self):
         self.config = {
-            "data_path": os.path.join(BASE_DIR, "datasets/BraTS18/train_split_proc"),
+            "data_path": os.path.join(BASE_DIR, "datasets/BraTS18/train_split_proc_new"),
             "log_path": os.path.join(BASE_DIR, "projects/regex/logs/"),
-            "gpu_id": 3,
-            # "weights": None,
-            "weights": os.path.join(BASE_DIR, "projects/regex/logs/unet_encoder_baseline/20210511_10:07:20/unet_encoder_baseline__best__epoch=038_score=0.9918.pt"),
-            "freeze_backbone": True,
+            "gpu_id": GPU_ID,
+            "weights": None,
+            # "weights": os.path.join(BASE_DIR, "projects/regex/logs/unet_encoder_baseline/20210512_11:48:33/unet_encoder_baseline__ckpt__epoch=026_score=0.9556.pt"),
+            "freeze_backbone": False,
             "prefetch_data": False,
             "num_classes": 2,
             "subsample_frac": 1.0,
             "seed": 42,
             "num_epochs": 200,
-            "chekpoint_save_interval": 10,
+            "chekpoint_save_interval": 25,
             "min_epoch_save": 1,
-            "batch_size": 16,
+            "batch_size": 32,
             "num_workers": 8,
-            "lr": 1e-3,
+            "lr": 1e-4,
             "optim_step": 100,
             "optim_factor": 0.5,
             "train_frac": 0.8,
             "use_gpu": True,
             "balanced_sampler": False,
-            "learnable_attn": True,
-            "learnable_marginals": True,
+            "learnable_attn": False,
+            "learnable_marginals": False,
             "learnable_lamb": False,
-            "attn_kl": True,
-            "kl_weight": 10.0,
+            "attn_kl": False,
+            "kl_weight": 0.1,
             "detach_targets": False,
             "init_lamb": 0.0,
             # "loss_weights" : [0.1, 0.2, 0.7],
             # "loss_weights": True,
-            "name": "unet_encoder_4attn_marginals",
+            "name": "unet_encoder_baseline",
             "group": "baseline",
             "arch": "unet_encoder_classifier",
             "channels": 4,
