@@ -160,6 +160,31 @@ def get_marginal_attr(level=4):
     return attns
 
 
+def get_baseline_attr(level=4):
+    base_dir = "/hdd0/projects/regex/logs/unet_encoder_4attn/20210513_19:14:05"
+    model_file = "unet_encoder_4attn__best__epoch=008_score=0.9640.pt"
+    config_file = "params.p"
+
+    config_handler = open(os.path.join(base_dir, config_file), 'rb')
+    params = pickle.load(config_handler)
+    params["learnable_attn"] = True
+    params["learnable_marginals"] = False
+    params["attn_kl"] = False
+    params["weights"] = model_path = os.path.join(base_dir, model_file)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = get_unet_encoder_classifier(**params)
+    model = model.to(device)
+    model.eval()
+
+    attns = []
+    for j, sample in tqdm(enumerate(val_loader), total=len(val_loader)):
+        image, (target, mask) = sample
+        image = image.to(device)
+        outputs, attn, _ = model(image)
+        attns.append(attn[level-1].detach().cpu())
+    return attns
+
+
 def get_ap(mask, heatmap):
     mask = mask[0]
     heatmap = heatmap[0]
@@ -175,11 +200,12 @@ def get_ap_stats(attrs):
         image, (_, mask) = sample
         ap = get_ap(mask, attrs[j])
         ap_list.append(ap)
-        plt.imshow(image[0, 2], cmap="gray")
-        plt.imshow(mask[0], alpha=0.4)
-        plt.show()
-        plt.imshow(attrs[j][0])
-        plt.show()
+        if j % 100 == 99:
+            plt.imshow(image[0, 2], cmap="gray")
+            plt.imshow(mask[0], alpha=0.4)
+            plt.show()
+            plt.imshow(attrs[j][0])
+            plt.show()
     return sum(ap_list) / len(ap_list)
 
 
@@ -188,7 +214,7 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     val_dataset, val_loader, model = get_dataset_and_base_model()
 
-    calc_attrs = False
+    calc_attrs = True
     calc_stats = True
     level = 4
     resize_filter = Resize((256, 256), interpolation=InterpolationMode.NEAREST)
@@ -203,9 +229,9 @@ if __name__ == "__main__":
         # ggc_attrs = get_guided_gradcam_attr(level=level)
         # with open(f'ggc_attrs_level={level}.pkl', 'wb') as f:
         #     pickle.dump(ggc_attrs, f)
-        # baseline_attrs = get_baseline_attr(level=level)
-        # with open(f'baseline_attrs_level={level}.pkl', 'wb') as f:
-        #     pickle.dump(baseline_attrs, f)
+        baseline_attrs = get_baseline_attr(level=level)
+        with open(f'baseline_attrs_level={level}.pkl', 'wb') as f:
+            pickle.dump(baseline_attrs, f)
         # kl_attrs = get_kl_attr(level=level)
         # with open(f'kl_attrs_level={level}.pkl', 'wb') as f:
         #     pickle.dump(kl_attrs, f)
@@ -223,8 +249,8 @@ if __name__ == "__main__":
             gc_attrs = pickle.load(f)
         # with open(f'ggc_attrs_level={level}.pkl', 'rb') as f:
         #     ggc_attrs = pickle.load(f)
-        # with open(f'baseline_attrs_level={level}.pkl', 'rb') as f:
-        #     baseline_attrs = pickle.load(f)
+        with open(f'baseline_attrs_level={level}.pkl', 'rb') as f:
+            baseline_attrs = pickle.load(f)
         # with open(f'kl_attrs_level={level}.pkl', 'rb') as f:
         #     kl_attrs = pickle.load(f)
         # with open(f'solver_attrs_level={level}.pkl', 'rb') as f:
@@ -232,8 +258,9 @@ if __name__ == "__main__":
         with open(f'marginal_attrs_level={level}.pkl', 'rb') as f:
             marginal_attrs = pickle.load(f)
 
-        # print("Marginal attrs mAP:", get_ap_stats(marginal_attrs))
-        # print("GradCAM attrs mAP:", get_ap_stats(gc_attrs))
+        print("Basline attrs mAP:", get_ap_stats(baseline_attrs))
+        print("Marginal attrs mAP:", get_ap_stats(marginal_attrs))
+        print("GradCAM attrs mAP:", get_ap_stats(gc_attrs))
         print("DeepLIFT attrs mAP:", get_ap_stats(dl_attrs))
 
         dl_stats = []
