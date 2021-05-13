@@ -100,7 +100,7 @@ class UNetEncoder(nn.Module):
                 marginal_pairs = self.marginals(tau1, tau2, tau3, tau4)
                 return x, (tau1, tau2, tau3, tau4), marginal_pairs
             return x, (tau1, tau2, tau3, tau4), None
-        return x, None, None
+        return x
 
 
 class UNet(nn.Module):

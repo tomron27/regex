@@ -8,7 +8,8 @@ import torch
 from torch.utils.data import Dataset
 from config import BASE_DIR
 
-from torchvision.transforms import Compose
+from torchvision.transforms import Compose, Resize
+from torchvision.transforms import InterpolationMode
 from kornia.augmentation import RandomAffine, RandomVerticalFlip, RandomHorizontalFlip
 from dataio.augmentations import CustomBrightness, CustomContrast
 
@@ -106,10 +107,11 @@ class BraTS18(Dataset):
 
 
 class BraTS18Binary(Dataset):
-    def __init__(self, base_folder, data_list, transforms=None, shuffle=True, random_state=42, get_mask=False, prefetch_data=False):
+    def __init__(self, base_folder, data_list, transforms=None, mask_transforms=None, shuffle=True, random_state=42, get_mask=False, prefetch_data=False):
         super(BraTS18Binary, self).__init__()
         self.base_folder = base_folder
         self.transforms = transforms
+        self.mask_transforms = mask_transforms
         self.get_mask = get_mask
         self.prefetch_data = prefetch_data
         self.shuffle = shuffle
@@ -156,6 +158,8 @@ class BraTS18Binary(Dataset):
 
         if self.transforms is not None:
             image = self.transforms(image).squeeze()
+            if self.mask_transforms is not None:
+                label = label[0], self.mask_transforms(label[1].unsqueeze(0)).squeeze(0)
 
         return image, label
 
@@ -174,18 +178,22 @@ if __name__ == "__main__":
     transforms = Compose([
         RandomVerticalFlip(p=0.5),
         RandomHorizontalFlip(p=0.5),
-        # RandomAffine(p=1.0, degrees=(-180, 180),
-        #              translate=(0.1, 0.1),
-        #              scale=(0.7, 1.3),
-        #              shear=(0.9, 1.1)),
+        RandomAffine(p=1.0, degrees=(-180, 180),
+                     translate=(0.2, 0.2),
+                     scale=(0.9, 1.5),
+                     shear=(0.7, 1.5)),
+        Resize((256, 256), interpolation=InterpolationMode.NEAREST)
+    ]),
         # CustomContrast(p=1.0, contrast=(0.7, 1.3)),
-        # CustomBrightness(p=1.0, brightness=(0.3, 1.1)),
-    ])
+        # CustomBrightness(p=1.0, brightness=(0.9, 1.1)),
+
+
+    mask_transforms = Resize((256, 256), interpolation=InterpolationMode.NEAREST)
     # sub_data = train_metadata[:10]
-    train_data = BraTS18Binary(folder, train_metadata, transforms=transforms, shuffle=True, random_state=1)
+    train_data = BraTS18Binary(folder, train_metadata, transforms=transforms[0], mask_transforms=mask_transforms, get_mask=True, shuffle=True, random_state=1)
     # all_data = BraTS18(folder, sub_data, transforms=transforms, shuffle=True)
     import matplotlib.pyplot as plt
-    for i in range(len(train_data)):
+    for i in range(10):
         image, mask = train_data.__getitem__(i)
         metadata = train_data._get_metadata(i)
         plt.imshow(image[2], cmap="gray")
