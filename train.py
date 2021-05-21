@@ -58,7 +58,8 @@ def train(seed=None):
                                                                    train_frac=params["train_frac"],
                                                                    bad_files=params["bad_files"],
                                                                    subsample_frac=params["subsample_frac"],
-                                                                   count_classes=True)
+                                                                   count_classes=True,
+                                                                   random_state=params["seed"])
     ### DEBUG
     # train_metadata, val_metadata = train_metadata[:128], val_metadata[:128]
 
@@ -182,11 +183,11 @@ def train(seed=None):
 
 
 if __name__ == "__main__":
-    train()
+    # train()
     # for lamb in [0.1, 0.5]:
     # for lamb in [1e-4, 1e-3, 1e-2, 1e-1]:
     #     train(lamb)
     # models = 5
-    # for i in range(5):
-    #     print(f"********** Ensemble iteration {i+1:02d} **********")
-    #     train(seed=i)
+    for i in range(5):
+        print(f"********** Ensemble iteration {i+1:02d} **********")
+        train(seed=i)

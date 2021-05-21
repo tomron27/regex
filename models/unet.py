@@ -65,8 +65,8 @@ class UNetEncoder(nn.Module):
         self.fc = nn.Linear(self.features * 16, self.num_classes)
 
         if self.learnable_attn:
-            self.attn1 = SimpleSelfAttention(input_channels=self.features, embed_channels=self.embed_channels)
-            self.attn2 = SimpleSelfAttention(input_channels=self.features * 2, embed_channels=self.embed_channels)
+            # self.attn1 = SimpleSelfAttention(input_channels=self.features, embed_channels=self.embed_channels)
+            # self.attn2 = SimpleSelfAttention(input_channels=self.features * 2, embed_channels=self.embed_channels)
             self.attn3 = SimpleSelfAttention(input_channels=self.features * 4, embed_channels=self.embed_channels)
             self.attn4 = SimpleSelfAttention(input_channels=self.features * 8, embed_channels=self.embed_channels)
             if self.learnable_marginals:
@@ -74,12 +74,12 @@ class UNetEncoder(nn.Module):
 
     def forward(self, x):
         x = self.encoder1(x)
-        if self.learnable_attn:
-            x, tau1 = self.attn1(x)
+        # if self.learnable_attn:
+        #     x, tau1 = self.attn1(x)
         x = self.pool1(x)
         x = self.encoder2(x)
-        if self.learnable_attn:
-            x, tau2 = self.attn2(x)
+        # if self.learnable_attn:
+        #     x, tau2 = self.attn2(x)
         x = self.pool2(x)
         x = self.encoder3(x)
         if self.learnable_attn:
@@ -97,10 +97,10 @@ class UNetEncoder(nn.Module):
 
         if self.learnable_attn:
             if self.learnable_marginals:
-                marginal_pairs = self.marginals(tau1, tau2, tau3, tau4)
-                return x, (tau1, tau2, tau3, tau4), marginal_pairs
-            return x, (tau1, tau2, tau3, tau4), None
-        return x
+                marginal_pairs = self.marginals(tau3, tau4)
+                return x, (tau3, tau4), marginal_pairs
+            return x, (tau3, tau4), None
+        return x, None, None
 
 
 class UNet(nn.Module):

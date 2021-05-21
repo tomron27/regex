@@ -154,30 +154,32 @@ class MarginalsExtended(nn.Module):
         self.margin_dim = margin_dim
         self.tau_pool = SumPool(factor=factor)
         # self.lamb1 = nn.Parameter(torch.ones(1, 1, margin_dim, margin_dim))
-        self.lamb2 = nn.Parameter(torch.ones(1, 1, margin_dim // 2, margin_dim // 2))
-        self.lamb3 = nn.Parameter(torch.ones(1, 1, margin_dim // 4, margin_dim // 4))
+        # self.lamb2 = nn.Parameter(torch.ones(1, 1, margin_dim // 2, margin_dim // 2))
+        # self.lamb3 = nn.Parameter(torch.ones(1, 1, margin_dim // 4, margin_dim // 4))
         self.lamb4 = nn.Parameter(torch.ones(1, 1, margin_dim // 8, margin_dim // 8))
         self.name = "marginals_extended"
 
-    def forward(self, tau1, tau2, tau3, tau4):
+    def forward(self, tau3, tau4):
+        # def forward(self, tau1, tau2, tau3, tau4):
 
-        tau1_lamb_neg = SumPool(2)(tau1) * torch.exp(-self.lamb2)
-        tau1_lamb_neg = tau1_lamb_neg / tau1_lamb_neg.view(tau1_lamb_neg.shape[0], -1).sum(dim=1)
-
-        tau2_lamb = tau2 * torch.exp(self.lamb2)
-        tau2_lamb = tau2_lamb / tau2_lamb.view(tau2_lamb.shape[0], -1).sum(dim=1)
-        tau2_lamb_neg = SumPool(2)(tau2) * torch.exp(-self.lamb3)
-        tau2_lamb_neg = tau2_lamb_neg / tau2_lamb_neg.view(tau2_lamb_neg.shape[0], -1).sum(dim=1)
-        
-        tau3_lamb = tau3 * torch.exp(self.lamb3)
-        tau3_lamb = tau3_lamb / tau3_lamb.view(tau3_lamb.shape[0], -1).sum(dim=1)
+        # tau1_lamb_neg = SumPool(2)(tau1) * torch.exp(-self.lamb2)
+        # tau1_lamb_neg = tau1_lamb_neg / tau1_lamb_neg.view(tau1_lamb_neg.shape[0], -1).sum(dim=1)
+        #
+        # tau2_lamb = tau2 * torch.exp(self.lamb2)
+        # tau2_lamb = tau2_lamb / tau2_lamb.view(tau2_lamb.shape[0], -1).sum(dim=1)
+        # tau2_lamb_neg = SumPool(2)(tau2) * torch.exp(-self.lamb3)
+        # tau2_lamb_neg = tau2_lamb_neg / tau2_lamb_neg.view(tau2_lamb_neg.shape[0], -1).sum(dim=1)
+        #
+        # tau3_lamb = tau3 * torch.exp(self.lamb3)
+        # tau3_lamb = tau3_lamb / tau3_lamb.view(tau3_lamb.shape[0], -1).sum(dim=1)
         tau3_lamb_neg = SumPool(2)(tau3) * torch.exp(-self.lamb4)
         tau3_lamb_neg = tau3_lamb_neg / tau3_lamb_neg.view(tau3_lamb_neg.shape[0], -1).sum(dim=1)
 
         tau4_lamb = tau4 * torch.exp(self.lamb4)
         tau4_lamb = tau4_lamb / tau4_lamb.view(tau4_lamb.shape[0], -1).sum(dim=1)
         # source, target
-        return (tau1_lamb_neg, tau2_lamb), (tau2_lamb_neg, tau3_lamb), (tau3_lamb_neg, tau4_lamb)
+        # return (tau1_lamb_neg, tau2_lamb), (tau2_lamb_neg, tau3_lamb), (tau3_lamb_neg, tau4_lamb)
+        return ((tau3_lamb_neg, tau4_lamb),)
 
 
 if __name__ == "__main__":

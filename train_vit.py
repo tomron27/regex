@@ -161,7 +161,7 @@ def train(seed=None):
                     for i, sample in tqdm(enumerate(val_loader), total=len(val_loader)):
                         images, targets = sample
                         images, targets = images.to(device, non_blocking=True), targets.to(device, non_blocking=True)
-                        outputs, attn, marginals = model(images)
+                        outputs = model(images)
                         if torch.isnan(outputs).any():
                             print("Oops")
                         loss = criterion(outputs, targets)

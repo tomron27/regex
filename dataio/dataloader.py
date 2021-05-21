@@ -159,7 +159,7 @@ class BraTS18Binary(Dataset):
         if self.transforms is not None:
             image = self.transforms(image).squeeze()
             if self.mask_transforms is not None:
-                label = label[0], self.mask_transforms(label[1].unsqueeze(0)).squeeze(0)
+                label = label[0], self.mask_transforms(label[1][None, None, ...]).squeeze(0)
 
         return image, label
 

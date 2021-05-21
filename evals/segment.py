@@ -259,8 +259,8 @@ def get_inxgrad_attr(level=4, normalize=True, downsample=True):
 
 
 def get_marginal_attr(level=4):
-    base_dir = "/hdd0/projects/regex/logs/unet_encoder_4attn_marginals/20210513_15:39:29"
-    model_file = "unet_encoder_4attn_marginals__best__epoch=005_score=0.9592.pt"
+    base_dir = "/hdd0/projects/regex/logs/vit_baseline/20210520_17:29:31"
+    model_file = "vit_baseline__best__epoch=026_score=0.9759.pt"
     config_file = "params.p"
 
     config_handler = open(os.path.join(base_dir, config_file), 'rb')
@@ -396,9 +396,9 @@ if __name__ == "__main__":
     val_dataset, val_loader, model = get_dataset_and_base_model()
 
     save_images = False
-    calc_attrs = True
+    calc_attrs = False
     calc_stats = True
-    levels = [1, 2, 3, 4]
+    levels = [3, 4]
     # levels = [1, ]
     # levels = [4, ]
     resize_filter = Resize((256, 256), interpolation=InterpolationMode.NEAREST)
@@ -443,6 +443,8 @@ if __name__ == "__main__":
                 dl_attrs = pickle.load(f)
             with open(f'lrp_attrs_level={level}.pkl', 'rb') as f:
                 lrp_attrs = pickle.load(f)
+            with open(f'vit_attrs_level={level}.pkl', 'rb') as f:
+                vit_attrs = pickle.load(f)
             with open(f'baseline_attrs_level={level}.pkl', 'rb') as f:
                 baseline_attrs = pickle.load(f)
             with open(f'solver_attrs_level={level}.pkl', 'rb') as f:
@@ -455,6 +457,7 @@ if __name__ == "__main__":
                 "InputXGradients": inxgrad_attrs,
                 "DeepLIFT": dl_attrs,
                 "LRP": lrp_attrs,
+                "ViT Attention": vit_attrs,
                 "Baseline Attention": baseline_attrs,
                 "Solver Attention": solver_attrs,
                 "Marginal Attention": marginal_attrs
