@@ -184,7 +184,7 @@ if __name__ == "__main__":
 
     baselines = [
         "/hdd0/projects/regex/logs/vit_baseline/20210522_10:59:10/vit_baseline__best__epoch=012_score=0.9684.pt",
-        "/hdd0/projects/regex/logs/vit_baseline/20210522_12:51:19/vit_baseline__best__epoch=002_score=0.9692.pt",
+        "/hdd0/projects/regex/logs/vit_baseline/20210520_17:29:31/vit_baseline__best__epoch=026_score=0.9759.pt",
         "/hdd0/projects/regex/logs/vit_baseline/20210522_14:43:11/vit_baseline__best__epoch=016_score=0.9801.pt",
         "/hdd0/projects/regex/logs/vit_baseline/20210522_16:36:01/vit_baseline__best__epoch=012_score=0.9717.pt",
         "/hdd0/projects/regex/logs/vit_baseline/20210522_18:28:37/vit_baseline__best__epoch=019_score=0.9761.pt",

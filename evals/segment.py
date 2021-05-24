@@ -402,11 +402,11 @@ if __name__ == "__main__":
 
     baseline_model_path = "/hdd0/projects/regex/models/unet_encoder_baseline_score=0.9717.pt"
     baseline_attn_models = [
-        # "/hdd0/projects/regex/logs/unet_encoder_2attn_baseline_ensemble/20210522_20:21:40/unet_encoder_2attn_baseline_ensemble__best__epoch=002_score=0.9573.pt",
-        # "/hdd0/projects/regex/logs/unet_encoder_2attn_baseline_ensemble/20210524_09:52:07/unet_encoder_2attn_baseline_ensemble__best__epoch=002_score=0.9481.pt",
-        # "/hdd0/projects/regex/logs/unet_encoder_2attn_baseline_ensemble/20210522_21:04:45/unet_encoder_2attn_baseline_ensemble__best__epoch=007_score=0.9711.pt",
-        # "/hdd0/projects/regex/logs/unet_encoder_2attn_baseline_ensemble/20210522_21:26:16/unet_encoder_2attn_baseline_ensemble__best__epoch=019_score=0.9745.pt",
-        # "/hdd0/projects/regex/logs/unet_encoder_2attn_baseline_ensemble/20210522_21:47:46/unet_encoder_2attn_baseline_ensemble__best__epoch=004_score=0.9527.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_2attn_uncon_ensemble/20210524_13:41:45/unet_encoder_2attn_uncon_ensemble__best__epoch=008_score=0.9697.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_2attn_uncon_ensemble/20210524_13:56:12/unet_encoder_2attn_uncon_ensemble__best__epoch=006_score=0.9734.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_2attn_uncon_ensemble/20210524_14:10:29/unet_encoder_2attn_uncon_ensemble__best__epoch=008_score=0.9720.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_2attn_uncon_ensemble/20210524_14:24:56/unet_encoder_2attn_uncon_ensemble__best__epoch=019_score=0.9745.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_2attn_uncon_ensemble/20210524_14:39:35/unet_encoder_2attn_uncon_ensemble__best__epoch=006_score=0.9734.pt",
     ]
     tau3_attn_models = [
 
@@ -415,17 +415,17 @@ if __name__ == "__main__":
 
     ]
     marginal_attn_models = [
-        "/hdd0/projects/regex/logs/unet_encoder_2attn_uncon_ensemble/20210524_13:41:45/unet_encoder_2attn_uncon_ensemble__best__epoch=008_score=0.9697.pt",
-        "/hdd0/projects/regex/logs/unet_encoder_2attn_uncon_ensemble/20210524_13:56:12/unet_encoder_2attn_uncon_ensemble__best__epoch=006_score=0.9734.pt",
-        "/hdd0/projects/regex/logs/unet_encoder_2attn_uncon_ensemble/20210524_14:10:29/unet_encoder_2attn_uncon_ensemble__best__epoch=008_score=0.9720.pt",
-        "/hdd0/projects/regex/logs/unet_encoder_2attn_uncon_ensemble/20210524_14:24:56/unet_encoder_2attn_uncon_ensemble__best__epoch=019_score=0.9745.pt",
-        "/hdd0/projects/regex/logs/unet_encoder_2attn_uncon_ensemble/20210524_14:39:35/unet_encoder_2attn_uncon_ensemble__best__epoch=006_score=0.9734.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_2attn_marginal_ensemble/20210524_15:11:10/unet_encoder_2attn_marginal_ensemble__best__epoch=008_score=0.9709.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_2attn_marginal_ensemble/20210524_15:25:39/unet_encoder_2attn_marginal_ensemble__best__epoch=014_score=0.9768.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_2attn_marginal_ensemble/20210524_15:40:33/unet_encoder_2attn_marginal_ensemble__best__epoch=016_score=0.9701.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_2attn_marginal_ensemble/20210524_15:56:09/unet_encoder_2attn_marginal_ensemble__best__epoch=017_score=0.9751.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_2attn_marginal_ensemble/20210524_16:10:53/unet_encoder_2attn_marginal_ensemble__best__epoch=012_score=0.9749.pt",
     ]
 
     save_images = False
     calc_attrs = True
     calc_stats = True
-    levels = [3]
+    levels = [3, 4]
     # levels = [1, ]
     # levels = [4, ]
     resize_filter = Resize((256, 256), interpolation=InterpolationMode.NEAREST)
@@ -474,9 +474,9 @@ if __name__ == "__main__":
 
             base_methods = {
                 "GradCAM": gc_attrs,
-                # "InputXGradients": inxgrad_attrs,
-                # "DeepLIFT": dl_attrs,
-                # "LRP": lrp_attrs,
+                "InputXGradients": inxgrad_attrs,
+                "DeepLIFT": dl_attrs,
+                "LRP": lrp_attrs,
             }
 
             for name, attrs in base_methods.items():
@@ -531,18 +531,22 @@ if __name__ == "__main__":
             if calc_stats:
                 with open(f'ensemble_attrs/k={k}_baseline_attrs_level={level}.pkl', 'rb') as f:
                     baseline_attrs = pickle.load(f)
+                # with open(f'ensemble_attrs/k={k}_tau3_attrs_level={level}.pkl', 'rb') as f:
+                #     tau3_attrs = pickle.load(f)
+                # with open(f'ensemble_attrs/k={k}_tau4_attrs_level={level}.pkl', 'rb') as f:
+                #     tau4_attrs = pickle.load(f)
                 with open(f'ensemble_attrs/k={k}_marginal_attrs_level={level}.pkl', 'rb') as f:
                     marginal_attrs = pickle.load(f)
                 with open(f'ensemble_attrs/k={k}_vit_attrs_level={level}.pkl', 'rb') as f:
                     vit_attrs = pickle.load(f)
-                with open(f'ensemble_attrs/k={k}_solver_attrs_level={level}.pkl', 'rb') as f:
-                    solver_attrs = pickle.load(f)
+                # with open(f'ensemble_attrs/k={k}_solver_attrs_level={level}.pkl', 'rb') as f:
+                #     solver_attrs = pickle.load(f)
 
             ens_methods = {
-                # "ViT": vit_attrs,
+                "ViT": vit_attrs,
                 # "Tau3": tau3_attrs,
                 # "Tau4": tau4_attrs,
-                # "Baseline": baseline_attrs,
+                "Baseline": baseline_attrs,
                 # "Solver": solver_attrs,
                 "Marginal": marginal_attrs
             }
