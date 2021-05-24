@@ -100,7 +100,8 @@ class UNetEncoder(nn.Module):
                 marginal_pairs = self.marginals(tau3, tau4)
                 return x, (tau3, tau4), marginal_pairs
             return x, (tau3, tau4), None
-        return x, None, None
+        return x
+        # return x, None, None      # clashes with captum
 
 
 class UNet(nn.Module):

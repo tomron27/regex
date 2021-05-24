@@ -29,7 +29,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID
 
 
-def train(seed=None):
+def train(seed=None, baseline=None):
     raw_params = TrainConfig()
     # Serialize transforms
     train_transforms = raw_params.config.pop("train_transforms")
@@ -38,6 +38,9 @@ def train(seed=None):
     raw_params.config["test_transforms"] = {"test_transforms": test_transforms.__str__()}
 
     params = raw_params.config
+
+    if baseline is not None:
+        params["weights"] = baseline
 
     # Set seed
     if seed is not None:
@@ -59,7 +62,8 @@ def train(seed=None):
                                                                    bad_files=params["bad_files"],
                                                                    subsample_frac=params["subsample_frac"],
                                                                    count_classes=True,
-                                                                   random_state=params["seed"])
+                                                                   # random_state=params["seed"],
+                                                                   )
     ### DEBUG
     # train_metadata, val_metadata = train_metadata[:128], val_metadata[:128]
 
@@ -188,6 +192,16 @@ if __name__ == "__main__":
     # for lamb in [1e-4, 1e-3, 1e-2, 1e-1]:
     #     train(lamb)
     # models = 5
+    baselines = [
+        "/hdd0/projects/regex/logs/unet_encoder_baseline_ensemble/20210522_01:02:01/unet_encoder_baseline_ensemble__best__epoch=054_score=0.9544.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_baseline_ensemble/20210522_02:03:02/unet_encoder_baseline_ensemble__best__epoch=020_score=0.9674.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_baseline_ensemble/20210522_03:03:57/unet_encoder_baseline_ensemble__best__epoch=047_score=0.9711.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_baseline_ensemble/20210522_04:04:59/unet_encoder_baseline_ensemble__best__epoch=046_score=0.9717.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_baseline_ensemble/20210522_05:06:03/unet_encoder_baseline_ensemble__best__epoch=042_score=0.9653.pt"
+    ]
+    # for i, baseline in enumerate(baselines):
+    #     print(f"********** Ensemble iteration {i+1:02d} **********")
+    #     train(seed=i, baseline=baseline)
     for i in range(5):
         print(f"********** Ensemble iteration {i+1:02d} **********")
         train(seed=i)

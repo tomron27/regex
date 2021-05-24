@@ -30,19 +30,21 @@ os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
+def get_dataset():
+    raw_params = TrainConfig()
+    # Serialize transforms
+    train_transforms = raw_params.config.pop("train_transforms")
+    test_transforms = raw_params.config.pop("test_transforms")
+    raw_params.config["train_transforms"] = {"transforms": train_transforms.__str__()}
+    raw_params.config["test_transforms"] = {"test_transforms": test_transforms.__str__()}
 
-def get_dataset_and_base_model():
-    base_dir = "/hdd0/projects/regex/logs/unet_encoder_4attn_marginals/20210513_15:39:29"
-    model_file = "unet_encoder_4attn_marginals__best__epoch=009_score=0.9632.pt"
+    params = raw_params.config
 
-    config_file = "params.p"
-
-    config_handler = open(os.path.join(base_dir, config_file), 'rb')
-    params = pickle.load(config_handler)
-    params["learnable_attn"] = False
-    params["learnable_marginals"] = False
-    params["attn_kl"] = False
-    params["weights"] = model_path = os.path.join(base_dir, model_file)
+    # Load dataset
+    train_metadata, val_metadata, _ = probe_data_folder(params["data_path"],
+                                                        train_frac=params["train_frac"],
+                                                        bad_files=params["bad_files"],
+                                                        subsample_frac=params["subsample_frac"])
 
     transforms = Compose([
         Normalize(mean=torch.tensor([149.56119, 165.83559, 166.13501, 112.61901]),
@@ -51,13 +53,8 @@ def get_dataset_and_base_model():
 
     mask_transforms = Resize((256, 256), interpolation=InterpolationMode.NEAREST)
 
-    # Load dataset
-    train_metadata, val_metadata, _ = probe_data_folder(params["data_path"],
-                                                        train_frac=params["train_frac"],
-                                                        bad_files=params["bad_files"],
-                                                        subsample_frac=params["subsample_frac"])
-
     # Dataset
+    # Filter only positive classes
     val_metadata = [(image, mask) for (image, mask) in val_metadata if "y=1" in image]
     # val_metadata = val_metadata[:100]   #DEBUG
     val_dataset = BraTS18Binary(params["data_path"],
@@ -73,6 +70,18 @@ def get_dataset_and_base_model():
                             pin_memory=True,
                             batch_size=1,
                             shuffle=False)
+    return val_dataset, val_loader
+
+def get_base_model(model_path, config_file="params.p"):
+    # base_dir = "/hdd0/projects/regex/logs/unet_encoder_4attn_marginals/20210513_15:39:29"
+    # model_file = "unet_encoder_4attn_marginals__best__epoch=009_score=0.9632.pt"
+    base_dir, model_file = os.path.split(model_path)
+
+    params = TrainConfig().config
+    params["learnable_attn"] = False
+    params["learnable_marginals"] = False
+    params["attn_kl"] = False
+    params["weights"] = model_path = os.path.join(base_dir, model_file)
 
     # Cuda
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -80,7 +89,7 @@ def get_dataset_and_base_model():
     model = model.to(device)
     model.eval()
 
-    return val_dataset, val_loader, model
+    return model
 
 
 def save_images_and_masks():
@@ -147,7 +156,7 @@ def get_solver(tau3, tau4):
     return mu3, mu4
 
 
-def get_deeplift_attr(level=4, downsample=True, normalize=True):
+def get_deeplift_attr(model, level=4, downsample=True, normalize=True):
     attrs = []
     from captum.attr import DeepLift
     attributer = DeepLift(model, multiply_by_inputs=False)
@@ -175,7 +184,7 @@ def get_deeplift_attr(level=4, downsample=True, normalize=True):
     return attrs
 
 
-def get_gradcam_attr(level=4, normalize=True):
+def get_gradcam_attr(model, level=4, normalize=True):
     attrs = []
     from captum.attr import LayerGradCam
     if level == 4:
@@ -192,7 +201,7 @@ def get_gradcam_attr(level=4, normalize=True):
     for j, sample in tqdm(enumerate(val_loader), total=len(val_loader)):
         image, (target, mask) = sample
         image = image.to(device)
-        attr = attributer.attribute(image, target=target[0])
+        attr = attributer.attribute(image, target=1-target.item())    # Bug?
         if normalize:
             attr -= attr.view(attr.shape[0], attr.shape[1], -1).min(dim=2)[0][:, :, None, None]
             attr /= attr.view(attr.shape[0], attr.shape[1], -1).max(dim=2)[0][:, :, None, None]
@@ -202,7 +211,7 @@ def get_gradcam_attr(level=4, normalize=True):
     return attrs
 
 
-def get_lrp_attr(level=4, normalize=True, downsample=True):
+def get_lrp_attr(model, level=4, normalize=True, downsample=True):
     attrs = []
     from captum.attr import LRP
     attributer = LRP(model)
@@ -230,7 +239,7 @@ def get_lrp_attr(level=4, normalize=True, downsample=True):
     return attrs
 
 
-def get_inxgrad_attr(level=4, normalize=True, downsample=True):
+def get_inxgrad_attr(model, level=4, normalize=True, downsample=True):
     attrs = []
     from captum.attr import InputXGradient
     attributer = InputXGradient(model)
@@ -258,10 +267,10 @@ def get_inxgrad_attr(level=4, normalize=True, downsample=True):
     return attrs
 
 
-def get_marginal_attr(level=4):
-    base_dir = "/hdd0/projects/regex/logs/vit_baseline/20210520_17:29:31"
-    model_file = "vit_baseline__best__epoch=026_score=0.9759.pt"
-    config_file = "params.p"
+def get_marginal_attr(model_path, level=4, config_file="params.p"):
+    # base_dir = "/hdd0/projects/regex/logs/vit_baseline/20210520_17:29:31"
+    # model_file = "vit_baseline__best__epoch=026_score=0.9759.pt"
+    base_dir, model_file = os.path.split(model_path)
 
     config_handler = open(os.path.join(base_dir, config_file), 'rb')
     params = pickle.load(config_handler)
@@ -279,16 +288,15 @@ def get_marginal_attr(level=4):
         image, (target, mask) = sample
         image = image.to(device)
         outputs, attn, marginals = model(image)
-        attns.append(attn[level-1].detach().cpu())
+        attns.append(attn[level-3].detach().cpu())
     return attns
 
 
-def get_baseline_attr(level=4):
-
-    base_dir = "/hdd0/projects/regex/logs/unet_encoder_4attn/20210513_19:14:05"
-    model_file = "unet_encoder_4attn__best__epoch=008_score=0.9640.pt"
-    # model_file = "unet_encoder_4attn__best__epoch=106_score=0.9653.pt"
-    config_file = "params.p"
+def get_baseline_attr(model_path, level=4, config_file="params.p"):
+    # base_dir = "/hdd0/projects/regex/logs/unet_encoder_4attn/20210513_19:14:05"
+    # model_file = "unet_encoder_4attn__best__epoch=008_score=0.9640.pt"
+    ### model_file = "unet_encoder_4attn__best__epoch=106_score=0.9653.pt"
+    base_dir, model_file = os.path.split(model_path)
 
     config_handler = open(os.path.join(base_dir, config_file), 'rb')
     params = pickle.load(config_handler)
@@ -306,14 +314,14 @@ def get_baseline_attr(level=4):
         image, (target, mask) = sample
         image = image.to(device)
         outputs, attn, _ = model(image)
-        attns.append(attn[level-1].detach().cpu())
+        attns.append(attn[level-3].detach().cpu())
     return attns
 
 
-def get_solver_attr(level=3):
-    base_dir = "/hdd0/projects/regex/logs/unet_encoder_4attn/20210513_19:14:05"
-    model_file = "unet_encoder_4attn__best__epoch=008_score=0.9640.pt"
-    config_file = "params.p"
+def get_solver_attr(model_path, level=3, config_file="params.p"):
+    # base_dir = "/hdd0/projects/regex/logs/unet_encoder_4attn/20210513_19:14:05"
+    # model_file = "unet_encoder_4attn__best__epoch=008_score=0.9640.pt"
+    base_dir, model_file = os.path.split(model_path)
 
     config_handler = open(os.path.join(base_dir, config_file), 'rb')
     params = pickle.load(config_handler)
@@ -334,7 +342,7 @@ def get_solver_attr(level=3):
         image, (target, mask) = sample
         image = image.to(device)
         outputs, attn, _ = model(image)
-        p1, p2 = attn[level-1], attn[level]
+        p1, p2 = attn[level-3], attn[level]
         mu1, mu2 = get_solver(p1.detach().cpu().numpy()[0], p2.detach().cpu().numpy()[0])
         attns.append(torch.tensor(mu1).unsqueeze(0))
     return attns
@@ -391,99 +399,169 @@ def get_q_iou_stats(attrs, q=0.025):
 
 
 if __name__ == "__main__":
-    # Base model and dataset
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    val_dataset, val_loader, model = get_dataset_and_base_model()
+
+    baseline_model_path = "/hdd0/projects/regex/models/unet_encoder_baseline_score=0.9717.pt"
+    baseline_attn_models = [
+        # "/hdd0/projects/regex/logs/unet_encoder_2attn_baseline_ensemble/20210522_20:21:40/unet_encoder_2attn_baseline_ensemble__best__epoch=002_score=0.9573.pt",
+        # "/hdd0/projects/regex/logs/unet_encoder_2attn_baseline_ensemble/20210524_09:52:07/unet_encoder_2attn_baseline_ensemble__best__epoch=002_score=0.9481.pt",
+        # "/hdd0/projects/regex/logs/unet_encoder_2attn_baseline_ensemble/20210522_21:04:45/unet_encoder_2attn_baseline_ensemble__best__epoch=007_score=0.9711.pt",
+        # "/hdd0/projects/regex/logs/unet_encoder_2attn_baseline_ensemble/20210522_21:26:16/unet_encoder_2attn_baseline_ensemble__best__epoch=019_score=0.9745.pt",
+        # "/hdd0/projects/regex/logs/unet_encoder_2attn_baseline_ensemble/20210522_21:47:46/unet_encoder_2attn_baseline_ensemble__best__epoch=004_score=0.9527.pt",
+    ]
+    tau3_attn_models = [
+
+    ]
+    tau_4_attn_models = [
+
+    ]
+    marginal_attn_models = [
+        "/hdd0/projects/regex/logs/unet_encoder_2attn_uncon_ensemble/20210524_13:41:45/unet_encoder_2attn_uncon_ensemble__best__epoch=008_score=0.9697.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_2attn_uncon_ensemble/20210524_13:56:12/unet_encoder_2attn_uncon_ensemble__best__epoch=006_score=0.9734.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_2attn_uncon_ensemble/20210524_14:10:29/unet_encoder_2attn_uncon_ensemble__best__epoch=008_score=0.9720.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_2attn_uncon_ensemble/20210524_14:24:56/unet_encoder_2attn_uncon_ensemble__best__epoch=019_score=0.9745.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_2attn_uncon_ensemble/20210524_14:39:35/unet_encoder_2attn_uncon_ensemble__best__epoch=006_score=0.9734.pt",
+    ]
 
     save_images = False
-    calc_attrs = False
+    calc_attrs = True
     calc_stats = True
-    levels = [3, 4]
+    levels = [3]
     # levels = [1, ]
     # levels = [4, ]
     resize_filter = Resize((256, 256), interpolation=InterpolationMode.NEAREST)
 
+    # Base model and dataset
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    val_dataset, val_loader = get_dataset()
+
     if save_images:
         save_images_and_masks()
+    base_model = get_base_model(baseline_model_path)
+    print("*** Single pass methods ***")
     for level in levels:
-        result = {}
-        print(f"****** Level {level} *****")
+        print(f"*** Level {level} ***")
         if calc_attrs:
-            print("*** Calculating attributions ***")
-            gc_attrs = get_gradcam_attr(level=level)
-            with open(f'gc_attrs_level={level}.pkl', 'wb') as f:
-                pickle.dump(gc_attrs, f)
-            inxgrad_attrs = get_inxgrad_attr(level=level)
-            with open(f'inxgrad_attrs_level={level}.pkl', 'wb') as f:
-                pickle.dump(inxgrad_attrs, f)
-            dl_attrs = get_deeplift_attr(level=level)
-            with open(f'dl_attrs_level={level}.pkl', 'wb') as f:
-                pickle.dump(dl_attrs, f)
-            lrp_attrs = get_lrp_attr(level=level)
-            with open(f'lrp_attrs_level={level}.pkl', 'wb') as f:
-                pickle.dump(lrp_attrs, f)
-            baseline_attrs = get_baseline_attr(level=level)
-            with open(f'baseline_attrs_level={level}.pkl', 'wb') as f:
-                pickle.dump(baseline_attrs, f)
-            marginal_attrs = get_marginal_attr(level=level)
-            with open(f'marginal_attrs_level={level}.pkl', 'wb') as f:
-                pickle.dump(marginal_attrs, f)
-            solver_attrs = get_solver_attr(level=level)
-            with open(f'solver_attrs_level={level}.pkl', 'wb') as f:
-                pickle.dump(solver_attrs, f)
-
+            if not os.path.exists(f'ensemble_attrs/k={0}_gc_attrs_level={level}.pkl'):
+                print(f"Calculating attributions: GracCAM level={level}")
+                gc_attrs = get_gradcam_attr(base_model, level=level)
+                with open(f'ensemble_attrs/k={0}_gc_attrs_level={level}.pkl', 'wb') as f:
+                    pickle.dump(gc_attrs, f)
+            if not os.path.exists(f'ensemble_attrs/k={0}_inxgrad_attrs_level={level}.pkl'):
+                print(f"Calculating attributions: Gradient*Input level={level}")
+                inxgrad_attrs = get_inxgrad_attr(base_model, level=level)
+                with open(f'ensemble_attrs/k={0}_inxgrad_attrs_level={level}.pkl', 'wb') as f:
+                    pickle.dump(inxgrad_attrs, f)
+            if not os.path.exists(f'ensemble_attrs/k={0}_dl_attrs_level={level}.pkl'):
+                print(f"Calculating attributions: DeepLIFT level={level}")
+                dl_attrs = get_deeplift_attr(base_model, level=level)
+                with open(f'ensemble_attrs/k={0}_dl_attrs_level={level}.pkl', 'wb') as f:
+                    pickle.dump(dl_attrs, f)
+            if not os.path.exists(f'ensemble_attrs/k={0}_lrp_attrs_level={level}.pkl'):
+                print(f"Calculating attributions: LRP level={level}")
+                lrp_attrs = get_lrp_attr(base_model, level=level)
+                with open(f'ensemble_attrs/k={0}_lrp_attrs_level={level}.pkl', 'wb') as f:
+                    pickle.dump(lrp_attrs, f)
 
         if calc_stats:
-            print("*** Calculating stats ***")
-            with open(f'gc_attrs_level={level}.pkl', 'rb') as f:
+            with open(f'ensemble_attrs/k={0}_gc_attrs_level={level}.pkl', 'rb') as f:
                 gc_attrs = pickle.load(f)
-            with open(f'inxgrad_attrs_level={level}.pkl', 'rb') as f:
+            with open(f'ensemble_attrs/k={0}_inxgrad_attrs_level={level}.pkl', 'rb') as f:
                 inxgrad_attrs = pickle.load(f)
-            with open(f'dl_attrs_level={level}.pkl', 'rb') as f:
+            with open(f'ensemble_attrs/k={0}_dl_attrs_level={level}.pkl', 'rb') as f:
                 dl_attrs = pickle.load(f)
-            with open(f'lrp_attrs_level={level}.pkl', 'rb') as f:
+            with open(f'ensemble_attrs/k={0}_lrp_attrs_level={level}.pkl', 'rb') as f:
                 lrp_attrs = pickle.load(f)
-            with open(f'vit_attrs_level={level}.pkl', 'rb') as f:
-                vit_attrs = pickle.load(f)
-            with open(f'baseline_attrs_level={level}.pkl', 'rb') as f:
-                baseline_attrs = pickle.load(f)
-            with open(f'solver_attrs_level={level}.pkl', 'rb') as f:
-                solver_attrs = pickle.load(f)
-            with open(f'marginal_attrs_level={level}.pkl', 'rb') as f:
-                marginal_attrs = pickle.load(f)
 
-            methods = {
+            base_methods = {
                 "GradCAM": gc_attrs,
-                "InputXGradients": inxgrad_attrs,
-                "DeepLIFT": dl_attrs,
-                "LRP": lrp_attrs,
-                "ViT Attention": vit_attrs,
-                "Baseline Attention": baseline_attrs,
-                "Solver Attention": solver_attrs,
-                "Marginal Attention": marginal_attrs
+                # "InputXGradients": inxgrad_attrs,
+                # "DeepLIFT": dl_attrs,
+                # "LRP": lrp_attrs,
             }
 
-            for name, attrs in methods.items():
-                print(name)
-                if len(attrs) == 0:
-                    result[name] = [None, None, None, None]
-                else:
-                    result[name] = [
-                        get_q_iou_stats(attrs, q=0.1),
-                        get_q_iou_stats(attrs, q=0.05),
-                        get_q_iou_stats(attrs, q=0.025),
-                        get_ap_stats(attrs)
-                    ]
+            for name, attrs in base_methods.items():
+                print(f"Processing results: k={0}, method={name}, level={level}")
+                if not os.path.exists(f'ensemble_results/k={0}_method={name}_level={level}__qiou_q=0.1.pkl'):
+                    stats = get_q_iou_stats(attrs, q=0.1)
+                    with open(f'ensemble_results/k={0}_method={name}_level={level}__qiou_q=0.1.pkl', 'wb') as f:
+                        pickle.dump(stats, f)
+                if not os.path.exists(f'ensemble_results/k={0}_method={name}_level={level}__qiou_q=0.05.pkl'):
+                    stats = get_q_iou_stats(attrs, q=0.05)
+                    with open(f'ensemble_results/k={0}_method={name}_level={level}__qiou_q=0.05.pkl', 'wb') as f:
+                        pickle.dump(stats, f)
+                if not os.path.exists(f'ensemble_results/k={0}_method={name}_level={level}__qiou_q=0.025.pkl'):
+                    stats = get_q_iou_stats(attrs, q=0.025)
+                    with open(f'ensemble_results/k={0}_method={name}_level={level}__qiou_q=0.025.pkl', 'wb') as f:
+                        pickle.dump(stats, f)
+                if not os.path.exists(f'ensemble_results/k={0}_method={name}_level={level}__map.pkl'):
+                    stats = get_ap_stats(attrs)
+                    with open(f'ensemble_results/k={0}_method={name}_level={level}__map.pkl', 'wb') as f:
+                        pickle.dump(stats, f)
+                        
+        print("*** Averaging attention based methods ***")
+        for k in range(len(marginal_attn_models)):
+            print(f"*** Ensemble iteration {k+1} ***")
+            if calc_attrs:
+                if not os.path.exists(f'ensemble_attrs/k={k}_baseline_attrs_level={level}.pkl'):
+                    print(f"Calculating attributions: Baseline k={k} level={level}")
+                    baseline_attrs = get_baseline_attr(baseline_attn_models[k], level=level)
+                    with open(f'ensemble_attrs/k={k}_baseline_attrs_level={level}.pkl', 'wb') as f:
+                        pickle.dump(baseline_attrs, f)
+                # if not os.path.exists(f'ensemble_attrs/k={k}_tau3_attrs_level={level}.pkl'):
+                # print(f"Calculating attributions: Tau3 k={k} level={level}")
+                #     tau3_attrs = get_tau3_attr(tau3_models[k], level=level)
+                #     with open(f'ensemble_attrs/k={k}_tau3_attrs_level={level}.pkl', 'wb') as f:
+                #         pickle.dump(tau3_attrs, f)
+                # if not os.path.exists(f'ensemble_attrs/k={k}_tau4_attrs_level={level}.pkl'):
+                # print(f"Calculating attributions: Tau4 k={k} level={level}")
+                #     tau4_attrs = get_tau4_attr(tau4_models[k], level=level)
+                #     with open(f'ensemble_attrs/k={k}_tau4_attrs_level={level}.pkl', 'wb') as f:
+                #         pickle.dump(tau4_attrs, f)
+                if not os.path.exists(f'ensemble_attrs/k={k}_marginal_attrs_level={level}.pkl'):
+                    print(f"Calculating attributions: Marginal k={k} level={level}")
+                    marginal_attrs = get_marginal_attr(marginal_attn_models[k], level=level)
+                    with open(f'ensemble_attrs/k={k}_marginal_attrs_level={level}.pkl', 'wb') as f:
+                        pickle.dump(marginal_attrs, f)
+                # if not os.path.exists(f'ensemble_attrs/k={k}_solver_attrs_level={level}.pkl'):
+                # print(f"Calculating attributions: Solver k={k} level={level}")
+                #     solver_attrs = get_solver_attr(baseline_attn_models[k], level=level)
+                #     with open(f'ensemble_attrs/k={k}_solver_attrs_level={level}.pkl', 'wb') as f:
+                #         pickle.dump(solver_attrs, f)
+                
+            if calc_stats:
+                with open(f'ensemble_attrs/k={k}_baseline_attrs_level={level}.pkl', 'rb') as f:
+                    baseline_attrs = pickle.load(f)
+                with open(f'ensemble_attrs/k={k}_marginal_attrs_level={level}.pkl', 'rb') as f:
+                    marginal_attrs = pickle.load(f)
+                with open(f'ensemble_attrs/k={k}_vit_attrs_level={level}.pkl', 'rb') as f:
+                    vit_attrs = pickle.load(f)
+                with open(f'ensemble_attrs/k={k}_solver_attrs_level={level}.pkl', 'rb') as f:
+                    solver_attrs = pickle.load(f)
 
-            with open(f'segmentation_results_level={level}.pkl', 'wb') as f:
-                pickle.dump(result, f)
-
-            # dl_stats = []
-            # gc_stats = []
-            # ggc_stats = []
-            # baseline_stats = []
-            # kl_stats = []
-            # solver_stats = []
-            # marginal_stats = []
-
-
+            ens_methods = {
+                # "ViT": vit_attrs,
+                # "Tau3": tau3_attrs,
+                # "Tau4": tau4_attrs,
+                # "Baseline": baseline_attrs,
+                # "Solver": solver_attrs,
+                "Marginal": marginal_attrs
+            }
+            for name, attrs in ens_methods.items():
+                print(f"Processing results: k={k}, method={name}, level={level}")
+                if not os.path.exists(f'ensemble_results/k={k}_method={name}_level={level}__qiou_q=0.1.pkl'):
+                    stats = get_q_iou_stats(attrs, q=0.1)
+                    with open(f'ensemble_results/k={k}_method={name}_level={level}__qiou_q=0.1.pkl', 'wb') as f:
+                        pickle.dump(stats, f)
+                if not os.path.exists(f'ensemble_results/k={k}_method={name}_level={level}__qiou_q=0.05.pkl'):
+                    stats = get_q_iou_stats(attrs, q=0.05)
+                    with open(f'ensemble_results/k={k}_method={name}_level={level}__qiou_q=0.05.pkl', 'wb') as f:
+                        pickle.dump(stats, f)
+                if not os.path.exists(f'ensemble_results/k={k}_method={name}_level={level}__qiou_q=0.025.pkl'):
+                    stats = get_q_iou_stats(attrs, q=0.025)
+                    with open(f'ensemble_results/k={k}_method={name}_level={level}__qiou_q=0.025.pkl', 'wb') as f:
+                        pickle.dump(stats, f)
+                if not os.path.exists(f'ensemble_results/k={k}_method={name}_level={level}__map.pkl'):
+                    stats = get_ap_stats(attrs)
+                    with open(f'ensemble_results/k={k}_method={name}_level={level}__map.pkl', 'wb') as f:
+                        pickle.dump(stats, f)
+        

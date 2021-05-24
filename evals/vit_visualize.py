@@ -182,23 +182,35 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
 
-    vit_attrs = []
-    # model = model.to("cpu")
-    for i, (image, label) in tqdm(enumerate(val_loader), total=len(val_loader)):
-        handles = add_attn_vis_hook(model)
-        image = image.to(device)
-        logits = model(image)
-        attn_weights_list = list(activation.values())
-        mask, joint_attentions, grid_size = get_mask(image, torch.cat(attn_weights_list))
-        mask = torch.tensor(mask)[None, ...]
-        vit_attrs.append(mask.detach())
-        remove_attn_vis_hook(handles)
-        activation = {}
+    baselines = [
+        "/hdd0/projects/regex/logs/vit_baseline/20210522_10:59:10/vit_baseline__best__epoch=012_score=0.9684.pt",
+        "/hdd0/projects/regex/logs/vit_baseline/20210522_12:51:19/vit_baseline__best__epoch=002_score=0.9692.pt",
+        "/hdd0/projects/regex/logs/vit_baseline/20210522_14:43:11/vit_baseline__best__epoch=016_score=0.9801.pt",
+        "/hdd0/projects/regex/logs/vit_baseline/20210522_16:36:01/vit_baseline__best__epoch=012_score=0.9717.pt",
+        "/hdd0/projects/regex/logs/vit_baseline/20210522_18:28:37/vit_baseline__best__epoch=019_score=0.9761.pt",
+    ]
+
+    for k, baseline in enumerate(baselines):
+        print(f"*** Processing baseline {k} ***")
+        vit_attrs = []
+        weights = torch.load(baseline)
+        model.load_state_dict(weights, strict=True)
+        # model = model.to("cpu")
+        for i, (image, label) in tqdm(enumerate(val_loader), total=len(val_loader)):
+            handles = add_attn_vis_hook(model)
+            image = image.to(device)
+            logits = model(image)
+            attn_weights_list = list(activation.values())
+            mask, joint_attentions, grid_size = get_mask(image, torch.cat(attn_weights_list))
+            mask = torch.tensor(mask)[None, ...]
+            vit_attrs.append(mask.detach())
+            remove_attn_vis_hook(handles)
+            activation = {}
 
 
-    for level in [3, 4]:
-        with open(f'vit_attrs_level={level}.pkl', 'wb') as f:
-            pickle.dump(vit_attrs, f)
+        for level in [3, 4]:
+            with open(f'ensemble_attrs/k={k}_vit_attrs_level={level}.pkl', 'wb') as f:
+                pickle.dump(vit_attrs, f)
 
     # pass
     # model_names = timm.list_models("vit*")
