@@ -342,7 +342,7 @@ def get_solver_attr(model_path, level=3, config_file="params.p"):
         image, (target, mask) = sample
         image = image.to(device)
         outputs, attn, _ = model(image)
-        p1, p2 = attn[level-3], attn[level]
+        p1, p2 = attn[level-3], attn[level-2]
         mu1, mu2 = get_solver(p1.detach().cpu().numpy()[0], p2.detach().cpu().numpy()[0])
         attns.append(torch.tensor(mu1).unsqueeze(0))
     return attns
@@ -408,10 +408,20 @@ if __name__ == "__main__":
         "/hdd0/projects/regex/logs/unet_encoder_2attn_uncon_ensemble/20210524_14:24:56/unet_encoder_2attn_uncon_ensemble__best__epoch=019_score=0.9745.pt",
         "/hdd0/projects/regex/logs/unet_encoder_2attn_uncon_ensemble/20210524_14:39:35/unet_encoder_2attn_uncon_ensemble__best__epoch=006_score=0.9734.pt",
     ]
-    tau3_attn_models = [
+    tau3_models = [
+        "/hdd0/projects/regex/logs/unet_encoder_tau3_ensemble/20210525_14:27:42/unet_encoder_tau3_ensemble__best__epoch=014_score=0.9665.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_tau3_ensemble/20210525_14:40:35/unet_encoder_tau3_ensemble__best__epoch=017_score=0.9738.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_tau3_ensemble/20210525_14:53:25/unet_encoder_tau3_ensemble__best__epoch=012_score=0.9703.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_tau3_ensemble/20210525_15:14:11/unet_encoder_tau3_ensemble__best__epoch=020_score=0.9711.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_tau3_ensemble/20210525_15:35:43/unet_encoder_tau3_ensemble__best__epoch=011_score=0.9726.pt",
 
     ]
-    tau_4_attn_models = [
+    tau4_models = [
+        "/hdd0/projects/regex/logs/unet_encoder_tau4_ensemble/20210525_16:39:07/unet_encoder_tau4_ensemble__best__epoch=008_score=0.9697.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_tau4_ensemble/20210525_16:55:18/unet_encoder_tau4_ensemble__best__epoch=006_score=0.9736.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_tau4_ensemble/20210525_17:12:00/unet_encoder_tau4_ensemble__best__epoch=008_score=0.9722.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_tau4_ensemble/20210525_17:27:34/unet_encoder_tau4_ensemble__best__epoch=019_score=0.9749.pt",
+        "/hdd0/projects/regex/logs/unet_encoder_tau4_ensemble/20210525_17:42:52/unet_encoder_tau4_ensemble__best__epoch=010_score=0.9747.pt"
 
     ]
     marginal_attn_models = [
@@ -425,7 +435,7 @@ if __name__ == "__main__":
     save_images = False
     calc_attrs = True
     calc_stats = True
-    levels = [3, 4]
+    levels = [4]
     # levels = [1, ]
     # levels = [4, ]
     resize_filter = Resize((256, 256), interpolation=InterpolationMode.NEAREST)
@@ -507,23 +517,25 @@ if __name__ == "__main__":
                     baseline_attrs = get_baseline_attr(baseline_attn_models[k], level=level)
                     with open(f'ensemble_attrs/k={k}_baseline_attrs_level={level}.pkl', 'wb') as f:
                         pickle.dump(baseline_attrs, f)
-                # if not os.path.exists(f'ensemble_attrs/k={k}_tau3_attrs_level={level}.pkl'):
-                # print(f"Calculating attributions: Tau3 k={k} level={level}")
-                #     tau3_attrs = get_tau3_attr(tau3_models[k], level=level)
-                #     with open(f'ensemble_attrs/k={k}_tau3_attrs_level={level}.pkl', 'wb') as f:
-                #         pickle.dump(tau3_attrs, f)
-                # if not os.path.exists(f'ensemble_attrs/k={k}_tau4_attrs_level={level}.pkl'):
-                # print(f"Calculating attributions: Tau4 k={k} level={level}")
-                #     tau4_attrs = get_tau4_attr(tau4_models[k], level=level)
-                #     with open(f'ensemble_attrs/k={k}_tau4_attrs_level={level}.pkl', 'wb') as f:
-                #         pickle.dump(tau4_attrs, f)
+                if level == 3:
+                    if not os.path.exists(f'ensemble_attrs/k={k}_tau3_attrs_level={level}.pkl'):
+                        print(f"Calculating attributions: Tau3 k={k} level={level}")
+                        tau3_attrs = get_baseline_attr(tau3_models[k], level=level)
+                        with open(f'ensemble_attrs/k={k}_tau3_attrs_level={level}.pkl', 'wb') as f:
+                            pickle.dump(tau3_attrs, f)
+                if level == 4:
+                    if not os.path.exists(f'ensemble_attrs/k={k}_tau4_attrs_level={level}.pkl'):
+                        print(f"Calculating attributions: Tau4 k={k} level={level}")
+                        tau4_attrs = get_baseline_attr(tau4_models[k], level=level)
+                        with open(f'ensemble_attrs/k={k}_tau4_attrs_level={level}.pkl', 'wb') as f:
+                            pickle.dump(tau4_attrs, f)
                 if not os.path.exists(f'ensemble_attrs/k={k}_marginal_attrs_level={level}.pkl'):
                     print(f"Calculating attributions: Marginal k={k} level={level}")
                     marginal_attrs = get_marginal_attr(marginal_attn_models[k], level=level)
                     with open(f'ensemble_attrs/k={k}_marginal_attrs_level={level}.pkl', 'wb') as f:
                         pickle.dump(marginal_attrs, f)
                 # if not os.path.exists(f'ensemble_attrs/k={k}_solver_attrs_level={level}.pkl'):
-                # print(f"Calculating attributions: Solver k={k} level={level}")
+                #     print(f"Calculating attributions: Solver k={k} level={level}")
                 #     solver_attrs = get_solver_attr(baseline_attn_models[k], level=level)
                 #     with open(f'ensemble_attrs/k={k}_solver_attrs_level={level}.pkl', 'wb') as f:
                 #         pickle.dump(solver_attrs, f)
@@ -533,8 +545,8 @@ if __name__ == "__main__":
                     baseline_attrs = pickle.load(f)
                 # with open(f'ensemble_attrs/k={k}_tau3_attrs_level={level}.pkl', 'rb') as f:
                 #     tau3_attrs = pickle.load(f)
-                # with open(f'ensemble_attrs/k={k}_tau4_attrs_level={level}.pkl', 'rb') as f:
-                #     tau4_attrs = pickle.load(f)
+                with open(f'ensemble_attrs/k={k}_tau4_attrs_level={level}.pkl', 'rb') as f:
+                    tau4_attrs = pickle.load(f)
                 with open(f'ensemble_attrs/k={k}_marginal_attrs_level={level}.pkl', 'rb') as f:
                     marginal_attrs = pickle.load(f)
                 with open(f'ensemble_attrs/k={k}_vit_attrs_level={level}.pkl', 'rb') as f:
@@ -545,7 +557,7 @@ if __name__ == "__main__":
             ens_methods = {
                 "ViT": vit_attrs,
                 # "Tau3": tau3_attrs,
-                # "Tau4": tau4_attrs,
+                "Tau4": tau4_attrs,
                 "Baseline": baseline_attrs,
                 # "Solver": solver_attrs,
                 "Marginal": marginal_attrs
